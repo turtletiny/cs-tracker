@@ -15,27 +15,29 @@ export function ReadingForm({ book, onDone, compact = false }: Props) {
   const toast = useToast((s) => s.show);
   const id = useId();
   const [date, setDate] = useState(todayISO());
-  const [page, setPage] = useState(book.currentPage ? String(book.currentPage) : "");
+  const [chapter, setChapter] = useState(String(Math.min(book.currentChapter + 1, book.totalChapters ?? Infinity)));
   const [minutes, setMinutes] = useState("");
   const [note, setNote] = useState("");
 
-  const pageNum = page.trim() === "" ? null : Number(page);
-  const pageInvalid = pageNum != null && (!Number.isFinite(pageNum) || pageNum < 0);
+  const chapterNum = chapter.trim() === "" ? null : Number(chapter);
+  const chapterInvalid =
+    chapterNum != null &&
+    (!Number.isFinite(chapterNum) || chapterNum < 0 || (book.totalChapters != null && chapterNum > book.totalChapters));
 
   return (
     <form
       className="reading-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (pageInvalid) return;
+        if (chapterInvalid) return;
         const mins = minutes.trim() === "" ? null : Math.max(0, Math.round(Number(minutes)));
         logReading(book.id, {
           date,
-          page: pageNum == null ? null : Math.round(pageNum),
+          chapter: chapterNum == null ? null : Math.round(chapterNum),
           minutes: Number.isFinite(mins) ? mins : null,
           note: note.trim(),
         });
-        toast(pageNum != null ? `Logged — now on page ${Math.round(pageNum)}` : "Session logged");
+        toast(chapterNum != null ? `Logged — ${Math.round(chapterNum)} chapter${Math.round(chapterNum) === 1 ? "" : "s"} done` : "Session logged");
         setNote("");
         setMinutes("");
         onDone?.();
@@ -43,18 +45,18 @@ export function ReadingForm({ book, onDone, compact = false }: Props) {
     >
       {compact && <span className="eyebrow">Log a session</span>}
       <div className="form-grid">
-        <label className="field" htmlFor={`${id}-page`}>
-          Reached page{book.totalPages ? ` (of ${book.totalPages})` : ""}
+        <label className="field" htmlFor={`${id}-chapter`}>
+          Chapters done{book.totalChapters ? ` (of ${book.totalChapters})` : ""}
           <input
-            id={`${id}-page`}
+            id={`${id}-chapter`}
             className="input num"
             type="number"
             min={0}
-            max={book.totalPages ?? undefined}
+            max={book.totalChapters ?? undefined}
             inputMode="numeric"
-            value={page}
-            onChange={(e) => setPage(e.target.value)}
-            aria-invalid={pageInvalid}
+            value={chapter}
+            onChange={(e) => setChapter(e.target.value)}
+            aria-invalid={chapterInvalid}
             autoFocus={compact}
           />
         </label>
@@ -95,7 +97,7 @@ export function ReadingForm({ book, onDone, compact = false }: Props) {
         />
       </label>
       <div className="form-actions">
-        <button className="btn btn--primary btn--sm" type="submit" disabled={pageInvalid}>
+        <button className="btn btn--primary btn--sm" type="submit" disabled={chapterInvalid}>
           Log session
         </button>
         {onDone && (

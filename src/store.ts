@@ -65,8 +65,8 @@ export function createInitialData(): AppData {
     title: p.book.title,
     author: p.book.author,
     coverUrl: p.book.cover,
-    totalPages: p.book.pages,
-    currentPage: 0,
+    totalChapters: p.book.chapters,
+    currentChapter: 0,
     status: "want",
     pillarId: p.id,
     startedAt: null,
@@ -108,6 +108,36 @@ export function pickData(state: AppState): AppData {
   return { pillars, books, checklist, customProblems, attempts, learntTopics };
 }
 
+type LegacyBook = Book & { totalPages?: number | null; currentPage?: number };
+type LegacyEntry = ReadingEntry & { page?: number | null };
+
+/**
+ * v1 tracked progress in pages; v2 tracks chapters. Seeded books get their
+ * chapter count and an estimated chapter from the page ratio. Other books
+ * keep their sessions but need a chapter count entered by hand.
+ */
+export function migrateData(data: AppData): AppData {
+  const seedChapters = new Map(PILLARS.map((p) => [`book-${p.id}`, p.book.chapters]));
+  const books = data.books.map((raw) => {
+    const b = raw as LegacyBook;
+    if (!("totalPages" in b) && !("currentPage" in b)) return b;
+    const { totalPages, currentPage, ...rest } = b;
+    const totalChapters = b.totalChapters ?? seedChapters.get(b.id) ?? null;
+    const currentChapter =
+      b.status === "finished" && totalChapters
+        ? totalChapters
+        : totalChapters && totalPages && currentPage
+          ? Math.min(totalChapters, Math.floor((currentPage / totalPages) * totalChapters))
+          : 0;
+    const entries = b.entries.map((e) => {
+      const { page: _page, ...entry } = e as LegacyEntry;
+      return { ...entry, chapter: entry.chapter ?? null };
+    });
+    return { ...rest, totalChapters, currentChapter, entries } as Book;
+  });
+  return { ...data, books };
+}
+
 /** Loose structural check for imported backups. */
 export function isAppData(value: unknown): value is AppData {
   if (!value || typeof value !== "object") return false;
@@ -129,13 +159,13 @@ function patchPillar(state: AppState, id: PillarId, fn: (p: PillarState) => Pill
 
 function applyReading(book: Book, entry: ReadingEntry): Book {
   const next: Book = { ...book, entries: [entry, ...book.entries].sort((a, b) => b.date.localeCompare(a.date)) };
-  if (entry.page != null) {
-    next.currentPage = Math.max(0, entry.page);
+  if (entry.chapter != null) {
+    next.currentChapter = Math.max(0, entry.chapter);
   }
   if (next.status === "want") next.status = "reading";
   if (!next.startedAt) next.startedAt = entry.date;
-  if (next.totalPages && next.currentPage >= next.totalPages && next.status !== "finished") {
-    next.currentPage = next.totalPages;
+  if (next.totalChapters && next.currentChapter >= next.totalChapters && next.status !== "finished") {
+    next.currentChapter = next.totalChapters;
     next.status = "finished";
     next.finishedAt = entry.date;
   }
@@ -180,8 +210,8 @@ export const useStore = create<AppState>()(
             {
               author: "",
               coverUrl: "",
-              totalPages: null,
-              currentPage: 0,
+              totalChapters: null,
+              currentChapter: 0,
               status: "want",
               pillarId: null,
               startedAt: null,
@@ -205,7 +235,7 @@ export const useStore = create<AppState>()(
             if (patch.status === "reading" && !next.startedAt) next.startedAt = todayISO();
             if (patch.status === "finished") {
               next.finishedAt = next.finishedAt ?? todayISO();
-              if (next.totalPages) next.currentPage = next.totalPages;
+              if (next.totalChapters) next.currentChapter = next.totalChapters;
             }
             return next;
           }),
@@ -226,8 +256,8 @@ export const useStore = create<AppState>()(
           books: s.books.map((b) => {
             if (b.id !== bookId) return b;
             const entries = b.entries.filter((e) => e.id !== entryId);
-            const latestPage = entries.find((e) => e.page != null)?.page ?? 0;
-            return { ...b, entries, currentPage: latestPage };
+            const latest = entries.find((e) => e.chapter != null)?.chapter ?? 0;
+            return { ...b, entries, currentChapter: latest };
           }),
         })),
 
@@ -271,13 +301,14 @@ export const useStore = create<AppState>()(
           attempts: s.attempts.filter((a) => a.problemId !== id),
         })),
 
-      importData: (data) => set(() => ({ ...createInitialData(), ...data })),
+      importData: (data) => set(() => ({ ...createInitialData(), ...migrateData(data) })),
       resetAll: () => set(() => createInitialData()),
     }),
     {
       name: "cs-tracker",
-      version: 1,
+      version: 2,
       partialize: (s) => pickData(s),
+      migrate: (persisted) => migrateData(persisted as AppData),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== "object") return current;
         const p = persisted as Partial<AppData>;

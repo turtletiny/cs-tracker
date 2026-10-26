@@ -7,7 +7,7 @@ import { ReadingForm } from "../components/ReadingForm";
 import { Segmented } from "../components/Segmented";
 import { useToast } from "../components/Toast";
 import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
-import { bookProgress, checklistProgress, pageLabel, PILLAR_STATUS } from "../lib/selectors";
+import { bookProgress, checklistProgress, progressLabel, PILLAR_STATUS } from "../lib/selectors";
 import { isSafeUrl, normalizeUrl } from "../lib/util";
 import { useStore } from "../store";
 import type { PillarId, Resource } from "../types";
@@ -138,7 +138,7 @@ function PillarBook({ pillarId }: { pillarId: PillarId }) {
         </Link>
         <span className="book-meta__author">{book.author}</span>
         <span className="small num" style={{ marginTop: "0.35rem" }}>
-          {pageLabel(book)}
+          {progressLabel(book)}
         </span>
         {progress != null && <ProgressBar value={progress} label="Reading progress" />}
       </div>

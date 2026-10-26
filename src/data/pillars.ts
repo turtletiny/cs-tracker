@@ -9,7 +9,7 @@ export interface PillarSeed {
     title: string;
     author: string;
     cover: string;
-    pages: number | null;
+    chapters: number | null;
   };
   resources: { label: string; url: string }[];
 }
@@ -25,7 +25,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Structure and Interpretation of Computer Programs",
       author: "Harold Abelson & Gerald Jay Sussman",
       cover: "/covers/sicp.jpg",
-      pages: 657,
+      chapters: 5,
     },
     resources: [
       { label: "SICP — free online edition", url: "https://sarabander.github.io/sicp/html/index.xhtml" },
@@ -46,7 +46,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Computer Systems: A Programmer’s Perspective",
       author: "Randal E. Bryant & David R. O’Hallaron",
       cover: "/covers/csapp.jpg",
-      pages: 1120,
+      chapters: 12,
     },
     resources: [
       { label: "CS:APP book site", url: "http://csapp.cs.cmu.edu/3e/home.html" },
@@ -67,7 +67,7 @@ export const PILLARS: PillarSeed[] = [
       title: "The Algorithm Design Manual",
       author: "Steven S. Skiena",
       cover: "/covers/skiena.jpg",
-      pages: 730,
+      chapters: 19,
     },
     resources: [
       { label: "Steven Skiena’s lectures", url: "https://www3.cs.stonybrook.edu/~skiena/373/videos/" },
@@ -85,7 +85,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Mathematics for Computer Science",
       author: "Eric Lehman, F. Thomson Leighton & Albert R. Meyer",
       cover: "/covers/mcs.jpg",
-      pages: 1048,
+      chapters: 22,
     },
     resources: [
       { label: "MCS — free PDF", url: "https://courses.csail.mit.edu/6.042/spring18/mcs.pdf" },
@@ -112,7 +112,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Operating Systems: Three Easy Pieces",
       author: "Remzi & Andrea Arpaci-Dusseau",
       cover: "/covers/ostep.jpg",
-      pages: 714,
+      chapters: 50,
     },
     resources: [
       { label: "OSTEP — free online", url: "https://pages.cs.wisc.edu/~remzi/OSTEP/" },
@@ -130,7 +130,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Computer Networking: A Top-Down Approach",
       author: "James Kurose & Keith Ross",
       cover: "/covers/top-down.jpg",
-      pages: 864,
+      chapters: 9,
     },
     resources: [
       { label: "Wireshark labs", url: "http://www-net.cs.umass.edu/wireshark-labs/" },
@@ -149,7 +149,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Readings in Database Systems (the Red Book)",
       author: "Peter Bailis, Joseph M. Hellerstein & Michael Stonebraker",
       cover: "/covers/redbook.jpg",
-      pages: null,
+      chapters: 11,
     },
     resources: [
       { label: "Joe Hellerstein’s CS 186 lectures", url: "https://www.youtube.com/user/CS186Berkeley/videos" },
@@ -166,7 +166,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Crafting Interpreters",
       author: "Robert Nystrom",
       cover: "/covers/crafting-interpreters.jpg",
-      pages: 640,
+      chapters: 30,
     },
     resources: [
       { label: "Crafting Interpreters — free online", url: "https://craftinginterpreters.com/contents.html" },
@@ -186,7 +186,7 @@ export const PILLARS: PillarSeed[] = [
       title: "Designing Data-Intensive Applications",
       author: "Martin Kleppmann",
       cover: "/covers/ddia.jpg",
-      pages: 616,
+      chapters: 12,
     },
     resources: [
       {

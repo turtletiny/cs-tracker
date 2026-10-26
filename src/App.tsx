@@ -93,7 +93,7 @@ function DataControls() {
 
   function exportData() {
     const data = pickData(useStore.getState());
-    const blob = new Blob([JSON.stringify({ app: "cs-tracker", version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], {
+    const blob = new Blob([JSON.stringify({ app: "cs-tracker", version: 2, exportedAt: new Date().toISOString(), data }, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);

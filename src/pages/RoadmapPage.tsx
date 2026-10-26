@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Cover } from "../components/Cover";
 import { ProgressBar } from "../components/ProgressBar";
 import { PILLARS, ROADMAP_EDGES, ROADMAP_LAYOUT } from "../data/pillars";
-import { bookProgress, checklistProgress, pageLabel, PILLAR_STATUS } from "../lib/selectors";
+import { bookProgress, checklistProgress, progressLabel, PILLAR_STATUS } from "../lib/selectors";
 import { useStore } from "../store";
 import type { PillarId } from "../types";
 
@@ -154,7 +154,7 @@ export function RoadmapPage() {
                 <Cover src={b.coverUrl} title={b.title} author={b.author} />
                 <span className="stack-s">
                   <span className="note__title">{b.title}</span>
-                  <span className="small muted num">{pageLabel(b)}</span>
+                  <span className="small muted num">{progressLabel(b)}</span>
                   {bookProgress(b) != null && <ProgressBar value={bookProgress(b)!} label={`${b.title} progress`} />}
                 </span>
               </Link>

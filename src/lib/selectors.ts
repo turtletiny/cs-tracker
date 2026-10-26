@@ -19,14 +19,14 @@ export const BOOK_STATUS = [
 export function bookProgress(book: Book | undefined | null): number | null {
   if (!book) return null;
   if (book.status === "finished") return 1;
-  if (!book.totalPages) return null;
-  return Math.min(1, book.currentPage / book.totalPages);
+  if (!book.totalChapters) return null;
+  return Math.min(1, book.currentChapter / book.totalChapters);
 }
 
-export function pageLabel(book: Book): string {
+export function progressLabel(book: Book): string {
   if (book.status === "finished") return "Finished";
-  if (book.totalPages) return `p. ${book.currentPage} of ${book.totalPages}`;
-  return book.currentPage ? `p. ${book.currentPage}` : "Not started";
+  if (book.totalChapters) return `${book.currentChapter} of ${book.totalChapters} chapters`;
+  return book.currentChapter ? `${book.currentChapter} chapter${book.currentChapter === 1 ? "" : "s"} done` : "Not started";
 }
 
 export function checklistProgress(items: ChecklistItem[]): number {

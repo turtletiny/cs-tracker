@@ -93,7 +93,7 @@ function BookView({ book }: { book: Book }) {
               {book.author && <p className="pillar__why" style={{ fontStyle: "normal" }}>{book.author}</p>}
               <p className="small muted">
                 {[
-                  book.totalPages ? `${book.totalPages} pages` : null,
+                  book.totalChapters ? `${book.totalChapters} chapters` : null,
                   book.startedAt ? `started ${formatDate(book.startedAt)}` : null,
                   book.finishedAt && book.status === "finished" ? `finished ${formatDate(book.finishedAt)}` : null,
                 ]
@@ -120,16 +120,16 @@ function BookView({ book }: { book: Book }) {
                 "Finished"
               ) : (
                 <>
-                  p. {book.currentPage}
-                  {book.totalPages ? <small> of {book.totalPages}</small> : null}
+                  {book.currentChapter}
+                  <small>{book.totalChapters ? ` of ${book.totalChapters}` : ""} chapters</small>
                 </>
               )}
             </p>
             {progress != null && <ProgressBar value={progress} label="Reading progress" />}
-            {!book.totalPages && book.status !== "finished" && (
-              <p className="small muted">Add a page count under “Edit details” to see a percentage.</p>
+            {!book.totalChapters && book.status !== "finished" && (
+              <p className="small muted">Add a chapter count under “Edit details” to see a percentage.</p>
             )}
-            {book.status !== "finished" && <ReadingForm key={book.currentPage} book={book} />}
+            {book.status !== "finished" && <ReadingForm key={book.currentChapter} book={book} />}
           </section>
 
           <section aria-labelledby="sessions-h">
@@ -145,7 +145,7 @@ function BookView({ book }: { book: Book }) {
                     <span className="small num">{formatDate(e.date)}</span>
                     <span className="stack-s" style={{ gap: "0.15rem" }}>
                       <span className="small num">
-                        {e.page != null ? `to p. ${e.page}` : "—"}
+                        {e.chapter != null ? `through ch. ${e.chapter}` : "—"}
                         {e.minutes ? <span className="muted"> · {e.minutes} min</span> : null}
                       </span>
                       {e.note && <span className="entry__note">{e.note}</span>}
@@ -208,24 +208,24 @@ function EditDetails({ book, onDone }: { book: Book; onDone: () => void }) {
   const updateBook = useStore((s) => s.updateBook);
   const [title, setTitle] = useState(book.title);
   const [author, setAuthor] = useState(book.author);
-  const [pages, setPages] = useState(book.totalPages ? String(book.totalPages) : "");
+  const [chapters, setChapters] = useState(book.totalChapters ? String(book.totalChapters) : "");
   const [pillarId, setPillarId] = useState<PillarId | "">(book.pillarId ?? "");
   const [startedAt, setStartedAt] = useState(book.startedAt ?? "");
   const [finishedAt, setFinishedAt] = useState(book.finishedAt ?? "");
 
-  const pagesNum = pages.trim() === "" ? null : Math.round(Number(pages));
-  const pagesInvalid = pagesNum != null && (!Number.isFinite(pagesNum) || pagesNum <= 0);
+  const chaptersNum = chapters.trim() === "" ? null : Math.round(Number(chapters));
+  const chaptersInvalid = chaptersNum != null && (!Number.isFinite(chaptersNum) || chaptersNum <= 0);
 
   return (
     <form
       className="add-book"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!title.trim() || pagesInvalid) return;
+        if (!title.trim() || chaptersInvalid) return;
         updateBook(book.id, {
           title: title.trim(),
           author: author.trim(),
-          totalPages: pagesNum,
+          totalChapters: chaptersNum,
           pillarId: pillarId || null,
           startedAt: startedAt || null,
           finishedAt: finishedAt || null,
@@ -244,14 +244,14 @@ function EditDetails({ book, onDone }: { book: Book; onDone: () => void }) {
           <input className="input" value={author} onChange={(e) => setAuthor(e.target.value)} />
         </label>
         <label className="field">
-          Pages
+          Chapters
           <input
             className="input num"
             type="number"
             min={1}
-            value={pages}
-            onChange={(e) => setPages(e.target.value)}
-            aria-invalid={pagesInvalid}
+            value={chapters}
+            onChange={(e) => setChapters(e.target.value)}
+            aria-invalid={chaptersInvalid}
           />
         </label>
         <label className="field">
@@ -275,7 +275,7 @@ function EditDetails({ book, onDone }: { book: Book; onDone: () => void }) {
         </label>
       </div>
       <div className="form-actions">
-        <button type="submit" className="btn btn--primary btn--sm" disabled={!title.trim() || pagesInvalid}>
+        <button type="submit" className="btn btn--primary btn--sm" disabled={!title.trim() || chaptersInvalid}>
           Save details
         </button>
         <button type="button" className="btn btn--ghost btn--sm" onClick={onDone}>

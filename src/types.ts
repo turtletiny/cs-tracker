@@ -31,8 +31,8 @@ export interface ReadingEntry {
   id: string;
   /** yyyy-mm-dd */
   date: string;
-  /** Page reached at the end of the session. */
-  page: number | null;
+  /** Chapters completed as of the end of the session. */
+  chapter: number | null;
   minutes: number | null;
   note: string;
 }
@@ -42,8 +42,8 @@ export interface Book {
   title: string;
   author: string;
   coverUrl: string;
-  totalPages: number | null;
-  currentPage: number;
+  totalChapters: number | null;
+  currentChapter: number;
   status: BookStatus;
   pillarId: PillarId | null;
   startedAt: string | null;

@@ -4,7 +4,7 @@ import { Cover } from "../components/Cover";
 import { CoverEditor } from "../components/CoverEditor";
 import { ProgressBar } from "../components/ProgressBar";
 import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
-import { BOOK_STATUS, bookProgress, pageLabel } from "../lib/selectors";
+import { BOOK_STATUS, bookProgress, progressLabel } from "../lib/selectors";
 import { formatDate } from "../lib/util";
 import { useStore } from "../store";
 import type { Book, BookStatus, PillarId } from "../types";
@@ -36,7 +36,7 @@ export function BooksPage() {
         </div>
         <p className="lede">
           {sessions === 0
-            ? "Log each sitting with the page you reached — progress, shelves and the roadmap update from there."
+            ? "Log each sitting with the chapters you’ve finished — progress, shelves and the roadmap update from there."
             : `${reading.length ? `${reading.length} on the go` : "Nothing on the go"}, ${finished.length} finished. ${sessions} session${sessions === 1 ? "" : "s"} logged${minutes ? `, ${formatMinutes(minutes)} in total` : ""}.`}
         </p>
       </header>
@@ -80,7 +80,7 @@ function WideBook({ book, index }: { book: Book; index: number }) {
         <span className="book-wide__title">{book.title}</span>
         <span className="small muted">{book.author}</span>
         <span className="small num" style={{ marginTop: "0.4rem" }}>
-          {pageLabel(book)}
+          {progressLabel(book)}
           {progress != null && <span className="muted"> · {Math.round(progress * 100)}%</span>}
         </span>
         {progress != null && <ProgressBar value={progress} label={`${book.title} progress`} />}
@@ -127,25 +127,25 @@ function AddBook({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
-  const [pages, setPages] = useState("");
+  const [chapters, setChapters] = useState("");
   const [pillarId, setPillarId] = useState<PillarId | "">("");
   const [status, setStatus] = useState<BookStatus>("want");
   const [coverUrl, setCoverUrl] = useState("");
   const [editingCover, setEditingCover] = useState(false);
 
-  const pagesNum = pages.trim() === "" ? null : Math.round(Number(pages));
-  const pagesInvalid = pagesNum != null && (!Number.isFinite(pagesNum) || pagesNum <= 0);
+  const chaptersNum = chapters.trim() === "" ? null : Math.round(Number(chapters));
+  const chaptersInvalid = chaptersNum != null && (!Number.isFinite(chaptersNum) || chaptersNum <= 0);
 
   return (
     <form
       className="add-book"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!title.trim() || pagesInvalid) return;
+        if (!title.trim() || chaptersInvalid) return;
         const id = addBook({
           title: title.trim(),
           author: author.trim(),
-          totalPages: pagesNum,
+          totalChapters: chaptersNum,
           pillarId: pillarId || null,
           status,
           coverUrl,
@@ -186,15 +186,15 @@ function AddBook({ onClose }: { onClose: () => void }) {
               <input className="input" value={author} onChange={(e) => setAuthor(e.target.value)} />
             </label>
             <label className="field">
-              Pages
+              Chapters
               <input
                 className="input num"
                 type="number"
                 min={1}
                 inputMode="numeric"
-                value={pages}
-                onChange={(e) => setPages(e.target.value)}
-                aria-invalid={pagesInvalid}
+                value={chapters}
+                onChange={(e) => setChapters(e.target.value)}
+                aria-invalid={chaptersInvalid}
               />
             </label>
             <label className="field">
@@ -220,7 +220,7 @@ function AddBook({ onClose }: { onClose: () => void }) {
             </label>
           </div>
           <div className="form-actions">
-            <button type="submit" className="btn btn--primary" disabled={!title.trim() || pagesInvalid}>
+            <button type="submit" className="btn btn--primary" disabled={!title.trim() || chaptersInvalid}>
               Add to log
             </button>
             <button type="button" className="btn btn--ghost" onClick={onClose}>

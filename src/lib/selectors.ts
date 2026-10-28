@@ -1,13 +1,7 @@
 import { useMemo } from "react";
 import { NEETCODE_150 } from "../data/neetcode";
 import { useStore } from "../store";
-import type { Book, ChecklistItem, PillarStatus, Problem } from "../types";
-
-export const PILLAR_STATUS: { id: PillarStatus; label: string }[] = [
-  { id: "not-started", label: "Not started" },
-  { id: "in-progress", label: "In progress" },
-  { id: "done", label: "Done" },
-];
+import type { Book, ChecklistItem, Problem } from "../types";
 
 export const BOOK_STATUS = [
   { id: "want", label: "Up next" },

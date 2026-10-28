@@ -8,7 +8,8 @@ import { BooksPage } from "./pages/BooksPage";
 import { LeetCodePage } from "./pages/LeetCodePage";
 import { NotFound } from "./pages/NotFound";
 import { PillarPage } from "./pages/PillarPage";
-import { RoadmapPage } from "./pages/RoadmapPage";
+import { SchedulePage } from "./pages/SchedulePage";
+import { RoadmapsPage } from "./pages/RoadmapsPage";
 import { isAppData, pickData, useStore } from "./store";
 
 export function App() {
@@ -16,8 +17,9 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<RoadmapPage />} />
+          <Route index element={<RoadmapsPage />} />
           <Route path="pillar/:id" element={<PillarPage />} />
+          <Route path="schedule" element={<SchedulePage />} />
           <Route path="leetcode" element={<LeetCodePage />} />
           <Route path="books" element={<BooksPage />} />
           <Route path="books/:id" element={<BookPage />} />
@@ -45,7 +47,7 @@ function ScrollManager() {
 
 function Layout() {
   const { pathname } = useLocation();
-  const onRoadmap = pathname === "/" || pathname.startsWith("/pillar");
+  const onRoadmaps = pathname === "/" || pathname.startsWith("/pillar");
 
   return (
     <div className="shell">
@@ -57,9 +59,10 @@ function Layout() {
             CS Progression <em>tracker</em>
           </Link>
           <nav className="nav" aria-label="Main">
-            <NavLink to="/" end className={onRoadmap ? "active" : ""}>
-              Roadmap
+            <NavLink to="/" end className={onRoadmaps ? "active" : ""}>
+              Roadmaps
             </NavLink>
+            <NavLink to="/schedule">Schedule</NavLink>
             <NavLink to="/leetcode">LeetCode</NavLink>
             <NavLink to="/books">Books</NavLink>
           </nav>
@@ -93,7 +96,7 @@ function DataControls() {
 
   function exportData() {
     const data = pickData(useStore.getState());
-    const blob = new Blob([JSON.stringify({ app: "cs-tracker", version: 2, exportedAt: new Date().toISOString(), data }, null, 2)], {
+    const blob = new Blob([JSON.stringify({ app: "cs-tracker", version: 4, exportedAt: new Date().toISOString(), data }, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);

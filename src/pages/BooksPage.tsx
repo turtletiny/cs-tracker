@@ -36,7 +36,7 @@ export function BooksPage() {
         </div>
         <p className="lede">
           {sessions === 0
-            ? "Log each sitting with the chapters you’ve finished — progress, shelves and the roadmap update from there."
+            ? "Log each sitting with the chapters you’ve finished — progress, shelves and your skill levels update from there."
             : `${reading.length ? `${reading.length} on the go` : "Nothing on the go"}, ${finished.length} finished. ${sessions} session${sessions === 1 ? "" : "s"} logged${minutes ? `, ${formatMinutes(minutes)} in total` : ""}.`}
         </p>
       </header>

@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
+import { Checklist } from "../components/Checklist";
+import { Connections } from "../components/Connections";
 import { Cover } from "../components/Cover";
 import { CoverEditor } from "../components/CoverEditor";
+import { Ladder } from "../components/Ladder";
+import { LeetCodeSnapshot } from "../components/LeetCodeSnapshot";
+import { Medallion } from "../components/Pips";
 import { ProgressBar } from "../components/ProgressBar";
+import { Roadmap } from "../components/Roadmap";
 import { ReadingForm } from "../components/ReadingForm";
-import { Segmented } from "../components/Segmented";
+import { StoryBank } from "../components/StoryBank";
 import { useToast } from "../components/Toast";
 import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
-import { bookProgress, checklistProgress, progressLabel, PILLAR_STATUS } from "../lib/selectors";
+import { bookProgress, progressLabel } from "../lib/selectors";
+import { summarize, useBookMap } from "../lib/skills";
 import { isSafeUrl, normalizeUrl } from "../lib/util";
 import { useStore } from "../store";
 import type { PillarId, Resource } from "../types";
@@ -27,17 +34,16 @@ function PillarView({ id }: { id: PillarId }) {
   const next = PILLARS[index + 1];
 
   const pillar = useStore((s) => s.pillars[id]);
-  const setStatus = useStore((s) => s.setPillarStatus);
   const setNotes = useStore((s) => s.setPillarNotes);
+  const bookById = useBookMap();
+  const summary = summarize(pillar, bookById);
 
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb">
-        <Link to="/">← Roadmap</Link>
+        <Link to="/">← Roadmaps</Link>
         <span aria-hidden="true">/</span>
-        <span>
-          Pillar {index + 1} of {PILLARS.length}
-        </span>
+        <span>{seed.short}</span>
       </nav>
 
       <div className="pillar">
@@ -45,24 +51,45 @@ function PillarView({ id }: { id: PillarId }) {
 
         <div className="pillar__main">
           <header className="pillar__head">
-            <span className="pillar__num" aria-hidden="true">
-              no. {index + 1}
-            </span>
+            <div className="pillar__level">
+              <Medallion steps={summary.steps} level={summary.level} />
+              <span className="stack-s" style={{ gap: 0 }}>
+                <span className="pillar__rank">{summary.rank}</span>
+                <span className="small muted num">
+                  Level {summary.level} of {summary.max}
+                </span>
+              </span>
+            </div>
             <h1>{seed.title}</h1>
             <p className="pillar__why">{seed.why}</p>
-            <div className="row" style={{ marginTop: "var(--space-xs)" }}>
-              <Segmented
-                label="Status"
-                value={pillar.status}
-                options={PILLAR_STATUS}
-                onChange={(s) => setStatus(id, s)}
-              />
-            </div>
           </header>
 
-          <Resources pillarId={id} />
+          <Roadmap pillarId={id} showHead={false} />
 
-          {id === "algorithms" && <Checklist />}
+          <Ladder pillarId={id} />
+
+          {id === "interview" && (
+            <>
+              <LeetCodeSnapshot />
+              <StoryBank />
+              <Checklist list="system-design" title="System design topics" anchor="system-design" />
+            </>
+          )}
+
+          {id === "algorithms" && (
+            <Checklist list="dsa" title="Implement from scratch" anchor="checklist">
+              <p className="small muted">
+                Practising problems instead?{" "}
+                <Link className="link" to="/leetcode">
+                  Go to the LeetCode tracker →
+                </Link>
+              </p>
+            </Checklist>
+          )}
+
+          <Connections pillarId={id} />
+
+          <Resources pillarId={id} />
 
           <section aria-labelledby="notes-h">
             <div className="section-head">
@@ -103,7 +130,11 @@ function PillarView({ id }: { id: PillarId }) {
 
 function PillarBook({ pillarId }: { pillarId: PillarId }) {
   const pillar = useStore((s) => s.pillars[pillarId]);
-  const book = useStore((s) => s.books.find((b) => b.id === pillar.bookId));
+  // Show the book for the next unfinished resource on the roadmap, falling back to the pillar’s own book.
+  const roadmapBookId = useStore(
+    (s) => s.pillars[pillarId].rungs.find((r) => !r.doneAt && r.bookId && s.books.some((b) => b.id === r.bookId))?.bookId ?? null,
+  );
+  const book = useStore((s) => s.books.find((b) => b.id === (roadmapBookId ?? pillar.bookId)));
   const books = useStore((s) => s.books);
   const updateBook = useStore((s) => s.updateBook);
   const setPillarBook = useStore((s) => s.setPillarBook);
@@ -132,7 +163,7 @@ function PillarBook({ pillarId }: { pillarId: PillarId }) {
       <Cover src={book.coverUrl} title={book.title} author={book.author} />
 
       <div className="book-meta">
-        <span className="eyebrow">The book</span>
+        <span className="eyebrow">{roadmapBookId ? "On the roadmap now" : "The book"}</span>
         <Link to={`/books/${book.id}`} className="book-meta__title" style={{ textDecoration: "none" }}>
           {book.title}
         </Link>
@@ -180,9 +211,11 @@ function PillarBook({ pillarId }: { pillarId: PillarId }) {
           <button type="button" className="btn btn--sm" onClick={() => setMode("cover")}>
             Change cover
           </button>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setMode("swap")}>
-            Swap book
-          </button>
+          {!roadmapBookId && (
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setMode("swap")}>
+              Swap book
+            </button>
+          )}
         </div>
       )}
     </aside>
@@ -229,7 +262,7 @@ function Resources({ pillarId }: { pillarId: PillarId }) {
   return (
     <section aria-labelledby="res-h">
       <div className="section-head">
-        <h2 id="res-h">Resources</h2>
+        <h2 id="res-h">Links</h2>
         {!adding && (
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAdding(true)}>
             + Add link
@@ -394,97 +427,6 @@ function ResourceForm({
           Cancel
         </button>
       </div>
-    </form>
-  );
-}
-
-function Checklist() {
-  const checklist = useStore((s) => s.checklist);
-  const toggle = useStore((s) => s.toggleChecklistItem);
-  const add = useStore((s) => s.addChecklistItem);
-  const remove = useStore((s) => s.removeChecklistItem);
-  const toast = useToast((s) => s.show);
-  const groups = [...new Set(checklist.map((c) => c.group))];
-  const done = checklist.filter((c) => c.doneAt).length;
-
-  return (
-    <section aria-labelledby="checklist" className="checklist">
-      <div className="section-head" style={{ marginBottom: 0 }}>
-        <h2 id="checklist">Implement from scratch</h2>
-        <span className="small muted num">
-          {done} of {checklist.length} · {Math.round(checklistProgress(checklist) * 100)}%
-        </span>
-      </div>
-      <div className="checklist__groups">
-        {groups.map((group) => {
-          const items = checklist.filter((c) => c.group === group);
-          return (
-            <div key={group} className="checklist__group">
-              <h3>
-                {group}
-                <span className="small muted num" style={{ fontFamily: "var(--font-body)", fontWeight: 400 }}>
-                  {items.filter((i) => i.doneAt).length}/{items.length}
-                </span>
-              </h3>
-              {items.map((item) => (
-                <div key={item.id} className="check">
-                  <label>
-                    <input type="checkbox" checked={!!item.doneAt} onChange={() => toggle(item.id)} />
-                    <span className="check__label">{item.label}</span>
-                  </label>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`Remove ${item.label}`}
-                    onClick={() => {
-                      remove(item.id);
-                      toast(`Removed “${item.label}”`, { label: "Undo", run: () => add(group, item.label) });
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <AddItem onAdd={(label) => add(group, label)} group={group} />
-            </div>
-          );
-        })}
-      </div>
-      <p className="small muted">
-        Practising problems instead?{" "}
-        <Link className="link" to="/leetcode">
-          Go to the LeetCode tracker →
-        </Link>
-      </p>
-    </section>
-  );
-}
-
-function AddItem({ onAdd, group }: { onAdd: (label: string) => void; group: string }) {
-  const [value, setValue] = useState("");
-  return (
-    <form
-      className="inline-add"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!value.trim()) return;
-        onAdd(value.trim());
-        setValue("");
-      }}
-    >
-      <label className="visually-hidden" htmlFor={`add-${group}`}>
-        Add to {group}
-      </label>
-      <input
-        id={`add-${group}`}
-        className="input"
-        placeholder="Add an item…"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <button type="submit" className="btn btn--sm" disabled={!value.trim()}>
-        Add
-      </button>
     </form>
   );
 }

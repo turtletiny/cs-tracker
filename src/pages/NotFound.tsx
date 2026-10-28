@@ -10,7 +10,7 @@ export function NotFound({ what = "page" }: { what?: string }) {
       <p className="lede">It may have been deleted, or the link is out of date.</p>
       <div className="row">
         <Link className="btn btn--primary" to="/">
-          Back to the roadmap
+          Back to the roadmaps
         </Link>
         <Link className="btn" to="/books">
           Book log

@@ -1,13 +1,5 @@
 ## Computer Science Progression Tracker
 
-- i want it to be more like a skill tracker, not a roadmap, each pillar has its own progression
-- somehow visually represent the interconnectedness between them
-- also add the interview as a pillar: behavioural, leetcode, system design, etc
-- a simple page for my daily schedule
-
-- cur programming roadmap -> finish rust book -> do the C course on boot.dev -> read a C book -> look at the MIPS stuff on UNSW
-
-
 ## Running it
 
 Requires Node 20+.

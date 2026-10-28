@@ -22,14 +22,14 @@ export function RoadmapsPage() {
         <h1>The roadmaps</h1>
         <p className="lede">
           {totalLevels === 0
-            ? "One roadmap per pillar, running left to right through its resources chapter by chapter. Click a chapter to mark everything up to it read."
-            : `${totalLevels} of ${maxLevels} resources finished. Click a chapter to mark everything up to it read; the diamond finishes the resource.`}
+            ? "What you’re working on in each pillar, and what’s next. Start a resource with its circle, drag its bar as you go, and finish it with the diamond. Open a pillar for its full roadmap."
+            : `${totalLevels} of ${maxLevels} resources finished. Here’s what’s on the go in each pillar and what’s next — open a pillar for its full roadmap.`}
         </p>
       </header>
 
       <div className="roadmaps">
         {PILLARS.map((p) => (
-          <Roadmap key={p.id} pillarId={p.id} />
+          <Roadmap key={p.id} pillarId={p.id} compact />
         ))}
       </div>
 

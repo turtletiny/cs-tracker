@@ -117,6 +117,29 @@ describe("roadmap progress", () => {
   });
 });
 
+describe("starting resources", () => {
+  beforeEach(() => useStore.getState().resetAll());
+
+  it("lets several resources in a pillar run at once", () => {
+    const { setRungStarted } = useStore.getState();
+    const rungs = () => useStore.getState().pillars.programming.rungs;
+    setRungStarted("programming", rungs()[1]!.id, true);
+    setRungStarted("programming", rungs()[2]!.id, true);
+    expect(rungs().filter((r) => r.startedAt).length).toBe(3);
+  });
+
+  it("moves a linked book onto and off the reading shelf", () => {
+    const { setRungStarted } = useStore.getState();
+    const knr = () => useStore.getState().pillars.programming.rungs.find((r) => r.bookId === "book-knr")!;
+    const book = () => useStore.getState().books.find((b) => b.id === "book-knr")!;
+    setRungStarted("programming", knr().id, true);
+    expect(book().status).toBe("reading");
+    setRungStarted("programming", knr().id, false);
+    expect(book().status).toBe("want");
+    expect(knr().startedAt).toBeNull();
+  });
+});
+
 describe("migrateData (steps → chapters)", () => {
   it("matches v3 steps to their seeds by old label and adds books they now need", () => {
     const data = createInitialData();

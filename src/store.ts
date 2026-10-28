@@ -53,6 +53,8 @@ interface Actions {
   removeRung: (id: PillarId, rungId: string) => void;
   moveRung: (id: PillarId, rungId: string, delta: -1 | 1) => void;
   toggleRungDone: (id: PillarId, rungId: string) => void;
+  /** Starting a book-linked step puts the book on the reading shelf; un-starting before reading any takes it off. */
+  setRungStarted: (id: PillarId, rungId: string, started: boolean) => void;
   /** Mark the first `done` parts of a step complete (and the rest not). Updates a linked book too. */
   setRungProgress: (id: PillarId, rungId: string, done: number) => void;
   toggleRungStarted: (id: PillarId, rungId: string) => void;
@@ -412,6 +414,27 @@ function progressPatch(state: AppState, id: PillarId, rungId: string, done: numb
   return { books, pillars };
 }
 
+function startedPatch(state: AppState, id: PillarId, rungId: string, started: boolean): Partial<AppData> {
+  const rung = state.pillars[id].rungs.find((r) => r.id === rungId);
+  if (!rung) return {};
+  const book = rung.bookId ? state.books.find((b) => b.id === rung.bookId) : undefined;
+  const books = !book
+    ? state.books
+    : state.books.map((b) => {
+        if (b.id !== book.id) return b;
+        if (started && b.status === "want") return { ...b, status: "reading" as const, startedAt: b.startedAt ?? todayISO() };
+        if (!started && b.status === "reading" && b.currentChapter === 0 && b.entries.length === 0) {
+          return { ...b, status: "want" as const, startedAt: null };
+        }
+        return b;
+      });
+  const pillars = patchRung(state, id, rungId, (r) => ({
+    ...r,
+    startedAt: started ? (r.startedAt ?? new Date().toISOString()) : null,
+  })).pillars;
+  return { books, pillars };
+}
+
 /** Only the last few months of schedule ticks are worth keeping. */
 function pruneDone(done: Record<string, string[]>, keepDays = 90): Record<string, string[]> {
   const cutoff = todayISO(new Date(Date.now() - keepDays * 86_400_000));
@@ -488,9 +511,11 @@ export const useStore = create<AppState>()(
         }),
       setRungProgress: (id, rungId, done) => set((s) => progressPatch(s, id, rungId, done)),
       toggleRungStarted: (id, rungId) =>
-        set((s) =>
-          patchRung(s, id, rungId, (r) => ({ ...r, startedAt: r.startedAt ? null : new Date().toISOString() })),
-        ),
+        set((s) => {
+          const rung = s.pillars[id].rungs.find((r) => r.id === rungId);
+          return rung ? startedPatch(s, id, rungId, !rung.startedAt) : {};
+        }),
+      setRungStarted: (id, rungId, started) => set((s) => startedPatch(s, id, rungId, started)),
 
       addBook: (book) => {
         const id = uid();

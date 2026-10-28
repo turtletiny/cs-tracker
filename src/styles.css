@@ -848,10 +848,7 @@ p {
   }
 }
 
-.lane__body {
-  min-width: 0;
-}
-
+/* One lane: finished → in progress (parallel branches) → not started. */
 .lane__scroll {
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -861,42 +858,183 @@ p {
   mask-image: linear-gradient(to right, transparent, #000 0.75rem, #000 calc(100% - 2.5rem), transparent);
 }
 
-.lane__track {
+.flow {
+  --label-h: 1.85rem;
+  --track-h: 1.9rem;
+  --caption-h: 1.25rem;
+  --row-gap: 0.25rem;
+  --seg-h: calc(var(--label-h) + var(--track-h) + var(--caption-h) + 2 * var(--row-gap));
+  /* Vertical centre of the node line within a segment. */
+  --mid: calc(var(--label-h) + var(--row-gap) + var(--track-h) / 2);
+  --join: 1.5rem;
   display: flex;
+  align-items: flex-start;
   width: max-content;
+  padding: 0.25rem 2.5rem 0 0.75rem;
+}
+
+.flow__run,
+.flow__branches {
   list-style: none;
   margin: 0;
-  padding: 0.3rem 2.5rem 0.3rem 0.75rem;
+  padding: 0;
+}
+
+.flow__run {
+  display: flex;
+}
+
+.flow > * + * {
+  margin-left: var(--join);
+  position: relative;
+}
+
+/* The line joining one phase to the next. */
+.flow > * + *::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: var(--mid);
+  width: var(--join);
+  border-top: 2px solid var(--ink);
+  translate: 0 -50%;
+}
+
+.flow > [data-phase="todo"]::before {
+  border-top: 2px dashed var(--ink-4);
+}
+
+.flow__run .seg + .seg {
+  margin-left: var(--join);
+}
+
+.flow__run .seg + .seg .seg__track::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: var(--join);
+  border-top: 2px solid var(--ink);
+  translate: 0 -50%;
+}
+
+.flow__run[data-phase="todo"] .seg + .seg .seg__track::before {
+  border-top: 2px dashed var(--ink-4);
+}
+
+/* Collapsed resources on the overview: a small link sitting on the line. */
+.flow__more {
+  display: flex;
+  align-items: flex-start;
+  height: var(--seg-h);
+  padding-top: calc(var(--mid) - 0.7rem);
+  text-decoration: none;
+}
+
+.flow__more span {
+  display: inline-flex;
+  align-items: center;
+  height: 1.4rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink);
+  transition: background-color 0.15s;
+}
+
+.flow__more[data-phase="todo"] span {
+  border-style: dashed;
+  border-color: var(--ink-4);
+  color: var(--ink-3);
+}
+
+.flow__more:hover span {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+
+/* Parallel branches: a bracket splits the line on the left and merges it on the right. */
+.flow__branches {
+  --branch-gap: 0.6rem;
+  display: grid;
+  row-gap: var(--branch-gap);
+  position: relative;
+  padding-inline: 0.9rem;
+}
+
+.flow__branch {
+  position: relative;
+  display: flex;
+}
+
+/* Merge on the right: from the first branch down to the last. */
+.flow__branches[data-many]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: var(--mid);
+  bottom: calc(var(--seg-h) - var(--mid));
+  border-left: 2px dashed var(--ink-4);
+}
+
+/* Split on the left: each branch draws the stretch down to the next one. */
+.flow__branches[data-many] .flow__branch:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: -0.9rem;
+  top: var(--mid);
+  height: calc(var(--seg-h) + var(--branch-gap));
+  border-left: 2px solid var(--ink);
+  translate: -1px 0;
+}
+
+/* Stubs from the split to each branch; each branch’s tail runs on to the merge. */
+.flow__branch::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: var(--mid);
+  width: 0.9rem;
+  border-top: 2px solid var(--ink);
+  translate: 0 -50%;
+}
+
+.flow__branch > .seg {
+  flex: none;
+}
+
+.flow__tail {
+  flex: 1 0 0.5rem;
+  align-self: flex-start;
+  margin-top: calc(var(--mid) - 1px);
+  margin-right: -0.9rem;
+  margin-left: 0.3rem;
+  border-top: 2px dashed var(--ink-4);
 }
 
 .seg {
-  --node: 1.5rem;
-  --gap: 0.3rem;
-  --seg-gap: 1.6rem;
+  position: relative;
   display: grid;
-  grid-template-rows: auto auto;
-  row-gap: 0.3rem;
+  grid-template-rows: var(--label-h) var(--track-h) var(--caption-h);
+  row-gap: var(--row-gap);
+  height: var(--seg-h);
 }
 
-.seg + .seg {
-  margin-left: var(--seg-gap);
-}
-
-.seg[data-single] {
-  min-width: 6.75rem;
-}
-
-/* The label never widens its segment; its text sticks while a long segment scrolls past. */
-.seg__label {
+/* The label and caption never widen a segment. */
+.seg__label,
+.seg__caption {
   contain: inline-size;
-  height: 1.85rem;
+  min-width: 0;
+}
+
+.seg__label {
   display: flex;
   align-items: flex-end;
-}
-
-.seg__label > * {
-  position: sticky;
-  left: 0.75rem;
+  gap: 0.4rem;
 }
 
 .seg__name {
@@ -910,106 +1048,175 @@ p {
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink-2);
+  text-decoration: none;
+}
+
+a.seg__name:hover {
+  color: var(--pen);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .seg__count {
   flex: none;
-  margin-left: 0.4rem;
   font-size: 0.7rem;
   color: var(--ink-3);
   line-height: 1.2;
 }
 
-.seg[data-done] .seg__name {
+.seg[data-status="doing"] .seg__name,
+.seg[data-status="done"] .seg__name {
   color: var(--ink);
 }
 
-.seg__nodes {
+.seg__caption {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seg[data-status="doing"] .seg__caption {
+  color: var(--ink-2);
+}
+
+.seg__track {
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--gap);
-  height: 1.9rem;
+  gap: 0.3rem;
 }
 
-/* Connectors: before every node, and across the gap between resources. */
-.rm-node + .rm-node::before,
-.seg + .seg .seg__nodes::before {
-  content: "";
-  position: absolute;
-  right: 100%;
-  top: 50%;
-  width: var(--gap);
+/* Bar length grows with the number of chapters, within limits. */
+.seg__bar,
+.seg__line {
+  flex: none;
+  width: calc(4.5rem + var(--len, 0) * 0.28rem);
+}
+
+.seg[data-single] .seg__line {
+  width: 3.5rem;
+}
+
+.seg__line {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ink) var(--fill, 0%), transparent var(--fill, 0%));
+  box-shadow: inset 0 0 0 1px var(--paper-4);
+}
+
+.seg[data-status="todo"] .seg__line {
+  height: 0;
   border-top: 2px dashed var(--ink-4);
-  translate: 0 -50%;
-  pointer-events: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
 }
 
-.seg + .seg .seg__nodes::before {
-  width: var(--seg-gap);
+.seg[data-status="done"] .seg__line {
+  background: var(--ink);
+  box-shadow: none;
 }
 
-/* A lone milestone is narrower than its label; carry the line on to the next resource. */
-.seg[data-single]:not(:last-child) .seg__nodes::after {
-  content: "";
-  flex: 1 0 0;
-  margin-left: calc(-1 * var(--gap));
-  border-top: 2px dashed var(--ink-4);
+.seg[data-single][data-status="doing"] .seg__line {
+  height: 0;
+  border-top: 2px solid var(--ink);
+  background: none;
+  box-shadow: none;
 }
 
-.seg[data-single][data-done]:not(:last-child) .seg__nodes::after {
-  border-top-style: solid;
-  border-top-color: var(--ink);
+/* The progress bar is a range input: click or drag to set chapters read. */
+.seg__bar {
+  appearance: none;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.rm-node + .rm-node[data-done]::before,
-.seg + .seg[data-reached] .seg__nodes::before {
-  border-top-style: solid;
-  border-top-color: var(--ink);
+.seg__bar::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ink) var(--fill), var(--paper-3) var(--fill));
+  box-shadow: inset 0 0 0 1px var(--paper-4);
 }
 
+.seg__bar::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ink) var(--fill), var(--paper-3) var(--fill));
+  box-shadow: inset 0 0 0 1px var(--paper-4);
+}
+
+.seg__bar::-webkit-slider-thumb {
+  appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: calc(3px - 0.425rem);
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--highlight);
+  transition: scale 0.15s var(--ease-out);
+}
+
+.seg__bar::-moz-range-thumb {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--highlight);
+  box-sizing: border-box;
+}
+
+.seg__bar:hover::-webkit-slider-thumb,
+.seg__bar:focus-visible::-webkit-slider-thumb {
+  scale: 1.25;
+}
+
+.seg__bar:focus-visible {
+  outline: 2px solid var(--pen);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Nodes: start (circle) and finish (diamond). */
 .rm-node {
   position: relative;
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--node);
-  height: var(--node);
   padding: 0;
-  border: 1.5px dashed var(--ink-4);
-  border-radius: 50%;
-  background: var(--paper);
-  color: var(--ink-3);
-  font-size: 0.62rem;
-  font-weight: 600;
-  line-height: 1;
   cursor: pointer;
+}
+
+.rm-node:disabled {
+  cursor: default;
+}
+
+.rm-node--start {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1.5px dashed var(--ink-3);
+  background: var(--paper);
   transition:
     background-color 0.15s,
     border-color 0.15s,
-    color 0.15s,
     scale 0.2s var(--ease-out);
 }
 
-.rm-node--part:hover,
-.rm-node--part:focus-visible {
+.rm-node--start:not(:disabled):hover {
   border-style: solid;
   border-color: var(--ink);
-  color: var(--ink);
-  scale: 1.15;
+  scale: 1.2;
 }
 
-.rm-node--part[data-done] {
+.rm-node--start[data-on] {
   border: 1.5px solid var(--ink);
   background: var(--ink);
-  color: var(--paper);
-}
-
-.rm-node--part[data-current] {
-  border: 1.5px solid var(--ink);
-  background: var(--highlight);
-  color: var(--ink);
-  box-shadow: 0 0 0 3px var(--highlight-soft);
 }
 
 .rm-node:focus-visible {
@@ -1017,19 +1224,20 @@ p {
   outline-offset: 2px;
 }
 
-/* Completion milestone: a diamond drawn on a pseudo-element so its connector stays level. */
 .rm-node--milestone {
   width: 1.65rem;
+  height: 1.65rem;
   border: 0;
   background: none;
   color: var(--highlight);
   font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .rm-node--milestone::after {
   content: "";
   position: absolute;
-  inset: 0.28rem 0.32rem;
+  inset: 0.3rem;
   border: 1.5px dashed var(--ink-3);
   border-radius: 2px;
   background: var(--paper);
@@ -1045,25 +1253,15 @@ p {
   z-index: 1;
 }
 
-.seg[data-single] .rm-node--milestone {
-  width: 1.9rem;
+.seg[data-status="doing"] .rm-node--milestone::after {
+  border-style: solid;
+  border-color: var(--ink-2);
 }
 
-.seg[data-single] .rm-node--milestone::after {
-  inset: 0.32rem 0.4rem;
-}
-
-.rm-node--milestone:hover::after,
-.rm-node--milestone:focus-visible::after {
+.rm-node--milestone:hover::after {
   border-style: solid;
   border-color: var(--ink);
   scale: 1.15;
-}
-
-.rm-node--milestone[data-current]::after {
-  border: 1.5px solid var(--ink);
-  background: var(--highlight);
-  box-shadow: 0 0 0 3px var(--highlight-soft);
 }
 
 .rm-node--milestone[data-done]::after {
@@ -1078,23 +1276,6 @@ p {
 .rm-node--milestone:focus-visible::after {
   outline: 2px solid var(--pen);
   outline-offset: 3px;
-}
-
-.lane__readout {
-  min-height: 1.5em;
-  padding-left: 0.75rem;
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.lane__readout-label {
-  font-family: var(--font-hand);
-  font-size: 1.15rem;
-  line-height: 1;
-  color: var(--pencil-red);
-  margin-right: 0.45rem;
 }
 
 @keyframes node-in {

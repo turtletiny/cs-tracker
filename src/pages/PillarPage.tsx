@@ -64,7 +64,7 @@ function PillarView({ id }: { id: PillarId }) {
             <p className="pillar__why">{seed.why}</p>
           </header>
 
-          <Roadmap pillarId={id} showHead={false} />
+          <Roadmap pillarId={id} />
 
           <Ladder pillarId={id} />
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { Cover } from "../components/Cover";
 import { CoverEditor } from "../components/CoverEditor";
 import { ProgressBar } from "../components/ProgressBar";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import { BOOK_STATUS, bookProgress, progressLabel } from "../lib/selectors";
 import { formatDate } from "../lib/util";
 import { useStore } from "../store";
@@ -70,13 +70,14 @@ function formatMinutes(total: number) {
 }
 
 function WideBook({ book, index }: { book: Book; index: number }) {
+  const pillars = useStore((s) => s.pillars);
   const progress = bookProgress(book);
   const last = book.entries[0];
   return (
     <Link to={`/books/${book.id}`} className="book-wide" style={{ "--i": index } as React.CSSProperties}>
       <Cover src={book.coverUrl} title={book.title} author={book.author} />
       <span className="book-wide__body">
-        {book.pillarId && <span className="tag">{PILLAR_BY_ID[book.pillarId].short}</span>}
+        {book.pillarId && <span className="tag">{pillars[book.pillarId]?.short}</span>}
         <span className="book-wide__title">{book.title}</span>
         <span className="small muted">{book.author}</span>
         <span className="small num" style={{ marginTop: "0.4rem" }}>
@@ -123,6 +124,7 @@ function Shelf({ id, title, books, empty }: { id: string; title: string; books: 
 }
 
 function AddBook({ onClose }: { onClose: () => void }) {
+  const pillarList = usePillarList();
   const addBook = useStore((s) => s.addBook);
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -201,7 +203,7 @@ function AddBook({ onClose }: { onClose: () => void }) {
               Pillar
               <select className="select" value={pillarId} onChange={(e) => setPillarId(e.target.value as PillarId | "")}>
                 <option value="">— None —</option>
-                {PILLARS.map((p) => (
+                {pillarList.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title}
                   </option>

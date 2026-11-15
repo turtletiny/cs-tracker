@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import { progressLabel } from "../lib/selectors";
 import { rungParts, rungStatus, summarize, useBookMap } from "../lib/skills";
 import { formatDate, isSafeUrl, normalizeUrl } from "../lib/util";
@@ -14,10 +14,11 @@ import { useToast } from "./Toast";
 export function Ladder({ pillarId }: { pillarId: PillarId }) {
   const pillar = useStore((s) => s.pillars[pillarId]);
   const bookById = useBookMap();
-  const summary = summarize(pillar, bookById);
   // null = closed; otherwise the track the new step goes in ("" for none).
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const addRung = useStore((s) => s.addRung);
+  if (!pillar) return null;
+  const summary = summarize(pillar, bookById);
 
   const trackNames = [...new Set(pillar.rungs.map((r) => r.track))].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : 0));
   const grouped = trackNames.some(Boolean);
@@ -105,6 +106,7 @@ export function Ladder({ pillarId }: { pillarId: PillarId }) {
 
 function RungRow({ pillarId, rung, n, first, last }: { pillarId: PillarId; rung: Rung; n: number; first: boolean; last: boolean }) {
   const book = useStore((s) => (rung.bookId ? s.books.find((b) => b.id === rung.bookId) : undefined));
+  const pillars = useStore((s) => s.pillars);
   const toggleDone = useStore((s) => s.toggleRungDone);
   const toggleStarted = useStore((s) => s.toggleRungStarted);
   const update = useStore((s) => s.updateRung);
@@ -170,11 +172,14 @@ function RungRow({ pillarId, rung, n, first, last }: { pillarId: PillarId; rung:
               </span>
             )
           )}
-          {rung.related.map((r) => (
-            <Link key={r} to={`/pillar/${r}`} className="rel-chip" title={`Also builds ${PILLAR_BY_ID[r].title}`}>
-              + {PILLAR_BY_ID[r].short}
-            </Link>
-          ))}
+          {rung.related.map((r) => {
+            const other = pillars[r];
+            return other ? (
+              <Link key={r} to={`/pillar/${r}`} className="rel-chip" title={`Also builds ${other.title}`}>
+                + {other.short}
+              </Link>
+            ) : null;
+          })}
         </span>
         {progress != null && progress > 0 && <ProgressBar value={progress} label={`${rung.label} progress`} />}
       </div>
@@ -210,12 +215,15 @@ function RungRow({ pillarId, rung, n, first, last }: { pillarId: PillarId; rung:
           className="icon-btn"
           aria-label={`Remove ${rung.label}`}
           onClick={() => {
-            const before = useStore.getState().pillars[pillarId].rungs;
+            const before = useStore.getState().pillars[pillarId]?.rungs ?? [];
             remove(pillarId, rung.id);
             toast(`Removed “${rung.label}”`, {
               label: "Undo",
               run: () =>
-                useStore.setState((s) => ({ pillars: { ...s.pillars, [pillarId]: { ...s.pillars[pillarId], rungs: before } } })),
+                useStore.setState((s) => {
+                  const p = s.pillars[pillarId];
+                  return p ? { pillars: { ...s.pillars, [pillarId]: { ...p, rungs: before } } } : {};
+                }),
             });
           }}
         >
@@ -240,7 +248,8 @@ function RungForm({
   onCancel: () => void;
 }) {
   const books = useStore((s) => s.books);
-  const tracks = useStore((s) => [...new Set(s.pillars[pillarId].rungs.map((r) => r.track).filter(Boolean))].join("\n"));
+  const tracks = useStore((s) => [...new Set((s.pillars[pillarId]?.rungs ?? []).map((r) => r.track).filter(Boolean))].join("\n"));
+  const otherPillars = usePillarList().filter((p) => p.id !== pillarId);
   const [label, setLabel] = useState(initial.label ?? "");
   const [url, setUrl] = useState(initial.url ?? "");
   const [track, setTrack] = useState(initial.track ?? "");
@@ -367,7 +376,7 @@ function RungForm({
       <fieldset className="field rung-form__wide rung-form__related">
         <legend>Also builds</legend>
         <div className="row">
-          {PILLARS.filter((p) => p.id !== pillarId).map((p) => (
+          {otherPillars.map((p) => (
             <button
               key={p.id}
               type="button"

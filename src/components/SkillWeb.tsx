@@ -1,12 +1,14 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { CONNECTIONS, PILLAR_BY_ID, PILLARS, WEB_HUB, WEB_RING } from "../data/pillars";
+import { CONNECTIONS, seedFor, WEB_HUB, WEB_RING } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import { findThreads, type SkillSummary } from "../lib/skills";
 import { useStore } from "../store";
 import type { PillarId } from "../types";
 import { Medallion } from "./Pips";
 
-const WEB_LABEL: Record<PillarId, string> = {
+/** Compact labels for the seeded pillars, used until you rename them. */
+const WEB_LABEL: Record<string, string> = {
   programming: "Programming",
   architecture: "Architecture",
   algorithms: "Algorithms",
@@ -24,10 +26,15 @@ const CX = 0.5;
 const CY = 0.47;
 const RADIUS = 0.37;
 
-function position(id: PillarId) {
-  if (id === WEB_HUB) return { x: CX, y: CY };
-  const i = WEB_RING.indexOf(id);
-  const t = -Math.PI / 2 + (i * Math.PI * 2) / WEB_RING.length;
+interface Layout {
+  hub: PillarId | null;
+  ring: PillarId[];
+}
+
+function position(id: PillarId, { hub, ring }: Layout) {
+  if (id === hub) return { x: CX, y: CY };
+  const i = Math.max(0, ring.indexOf(id));
+  const t = -Math.PI / 2 + (i * Math.PI * 2) / Math.max(ring.length, 1);
   return { x: CX + RADIUS * Math.cos(t), y: CY + RADIUS * Math.sin(t) };
 }
 
@@ -78,12 +85,23 @@ type Lit = "both" | "one" | "none";
 
 export function SkillWeb({ skills }: { skills: Record<PillarId, SkillSummary> }) {
   const pillars = useStore((s) => s.pillars);
+  const list = usePillarList();
   const threads = useMemo(() => findThreads(pillars), [pillars]);
+  // Seeded pillars keep their hand-picked spots around the ring; pillars you add join the end of it.
+  const layout = useMemo<Layout>(() => {
+    const hub = pillars[WEB_HUB] ? WEB_HUB : null;
+    const ring = [
+      ...WEB_RING.filter((id) => pillars[id]),
+      ...list.map((p) => p.id).filter((id) => id !== hub && !(WEB_RING as string[]).includes(id)),
+    ];
+    return { hub, ring };
+  }, [pillars, list]);
+  const connections = useMemo(() => CONNECTIONS.filter((c) => pillars[c.a] && pillars[c.b]), [pillars]);
   const [focus, setFocus] = useState<PillarId | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const size = useSize(ref);
 
-  const started = (id: PillarId) => skills[id].progress > 0;
+  const started = (id: PillarId) => (skills[id]?.progress ?? 0) > 0;
   const litOf = (a: PillarId, b: PillarId): Lit =>
     started(a) && started(b) ? "both" : started(a) || started(b) ? "one" : "none";
   const touches = (e: { a: PillarId; b: PillarId }, id: PillarId) => e.a === id || e.b === id;
@@ -91,25 +109,25 @@ export function SkillWeb({ skills }: { skills: Record<PillarId, SkillSummary> })
   const neighbours = useMemo(() => {
     if (!focus) return null;
     const set = new Set<PillarId>([focus]);
-    for (const e of [...CONNECTIONS, ...threads]) {
+    for (const e of [...connections, ...threads]) {
       if (e.a === focus) set.add(e.b);
       if (e.b === focus) set.add(e.a);
     }
     return set;
-  }, [focus, threads]);
+  }, [focus, threads, connections]);
 
-  const litCount = CONNECTIONS.filter((c) => litOf(c.a, c.b) === "both").length;
-  const nodes = [WEB_HUB, ...WEB_RING];
+  const litCount = connections.filter((c) => litOf(c.a, c.b) === "both").length;
+  const nodes = layout.hub ? [layout.hub, ...layout.ring] : layout.ring;
 
   return (
     <section className="web-panel" aria-labelledby="web-h">
       <div className="web" ref={ref} onMouseLeave={() => setFocus(null)}>
         {size > 0 && (
           <svg className="web__edges" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-            {CONNECTIONS.map((c) => (
+            {connections.map((c) => (
               <path
                 key={`${c.a}-${c.b}`}
-                d={curve(position(c.a), position(c.b), size, "inward")}
+                d={curve(position(c.a, layout), position(c.b, layout), size, "inward")}
                 data-lit={litOf(c.a, c.b)}
                 data-focus={focus ? touches(c, focus) : undefined}
               />
@@ -122,7 +140,7 @@ export function SkillWeb({ skills }: { skills: Record<PillarId, SkillSummary> })
                 <path
                   key={`t-${t.a}-${t.b}`}
                   className="web__thread"
-                  d={curve(position(t.a), position(t.b), size, "aside")}
+                  d={curve(position(t.a, layout), position(t.b, layout), size, "aside")}
                   data-done={t.rungs.some((r) => r.rung.doneAt)}
                   data-planned={!active || undefined}
                   data-focus={focus ? touches(t, focus) : undefined}
@@ -132,24 +150,27 @@ export function SkillWeb({ skills }: { skills: Record<PillarId, SkillSummary> })
           </svg>
         )}
         {nodes.map((id, i) => {
-          const p = position(id);
+          const p = position(id, layout);
           const s = skills[id];
+          const pillar = pillars[id];
+          if (!s || !pillar) return null;
+          const label = pillar.short === seedFor(id)?.short ? (WEB_LABEL[id] ?? pillar.short) : pillar.short;
           return (
             <Link
               key={id}
               to={`/pillar/${id}`}
               className="web-node"
-              data-hub={id === WEB_HUB || undefined}
+              data-hub={id === layout.hub || undefined}
               data-dim={neighbours ? !neighbours.has(id) : undefined}
               data-focus={focus === id || undefined}
               style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, "--i": i } as React.CSSProperties}
-              aria-label={`${PILLAR_BY_ID[id].title}: level ${s.level} of ${s.max}, ${s.rank}`}
+              aria-label={`${pillar.title}: level ${s.level} of ${s.max}, ${s.rank}`}
               onMouseEnter={() => setFocus(id)}
               onFocus={() => setFocus(id)}
               onBlur={() => setFocus(null)}
             >
               <Medallion steps={s.steps} level={s.level} />
-              <span className="web-node__label">{WEB_LABEL[id]}</span>
+              <span className="web-node__label">{label}</span>
             </Link>
           );
         })}
@@ -164,7 +185,7 @@ export function SkillWeb({ skills }: { skills: Record<PillarId, SkillSummary> })
               How it all connects
             </h2>
             <p className="small muted">
-              {litCount} of {CONNECTIONS.length} links lit. A link goes solid once you’ve made progress on both
+              {litCount} of {connections.length} links lit. A link goes solid once you’ve made progress on both
               ends. Point at a skill to trace its links; click to open it.
             </p>
             <ul className="web-legend">
@@ -214,11 +235,15 @@ function FocusCaption({
   threads: ReturnType<typeof findThreads>;
   litOf: (a: PillarId, b: PillarId) => Lit;
 }) {
-  const seed = PILLAR_BY_ID[id];
+  const pillars = useStore((st) => st.pillars);
+  const order = useStore((st) => st.pillarOrder);
+  const pillar = pillars[id];
   const s = skills[id];
-  const links = CONNECTIONS.filter((c) => c.a === id || c.b === id)
+  if (!pillar || !s) return null;
+  const nameOf = (pid: PillarId) => pillars[pid]?.short ?? "";
+  const links = CONNECTIONS.filter((c) => (c.a === id || c.b === id) && pillars[c.a] && pillars[c.b])
     .map((c) => ({ other: c.a === id ? c.b : c.a, why: c.why }))
-    .sort((x, y) => PILLARS.findIndex((p) => p.id === x.other) - PILLARS.findIndex((p) => p.id === y.other));
+    .sort((x, y) => order.indexOf(x.other) - order.indexOf(y.other));
   const bridges = threads
     .filter((t) => t.a === id || t.b === id)
     .flatMap((t) => t.rungs.map((r) => ({ ...r, other: r.pillarId === id ? (t.a === id ? t.b : t.a) : r.pillarId })));
@@ -229,12 +254,15 @@ function FocusCaption({
         Lv {s.level} / {s.max} · {s.rank}
       </span>
       <h2 id="web-h" className="web-caption__title">
-        {seed.title}
+        {pillar.title}
       </h2>
+      {links.length === 0 && bridges.length === 0 && (
+        <p className="small muted">No links yet — tag resources with “Also builds” to connect this pillar.</p>
+      )}
       <ul className="web-links">
         {links.map((l) => (
           <li key={l.other} data-lit={litOf(id, l.other)}>
-            <strong>{PILLAR_BY_ID[l.other].short}</strong>
+            <strong>{nameOf(l.other)}</strong>
             <span className="small muted">{l.why}</span>
           </li>
         ))}
@@ -247,7 +275,7 @@ function FocusCaption({
               <li key={`${b.rung.id}-${b.other}`} data-thread={b.rung.doneAt ? "done" : b.rung.startedAt ? "doing" : "planned"}>
                 <strong>{b.rung.label}</strong>
                 <span className="small muted">
-                  {b.pillarId === id ? `also builds ${PILLAR_BY_ID[b.other].short}` : `from ${PILLAR_BY_ID[b.pillarId].short}`}
+                  {b.pillarId === id ? `also builds ${nameOf(b.other)}` : `from ${nameOf(b.pillarId)}`}
                   {b.rung.doneAt ? " · done" : b.rung.startedAt ? " · in progress" : ""}
                 </span>
               </li>

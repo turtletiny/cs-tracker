@@ -6,7 +6,7 @@ import { CoverEditor } from "../components/CoverEditor";
 import { ProgressBar } from "../components/ProgressBar";
 import { ReadingForm } from "../components/ReadingForm";
 import { useToast } from "../components/Toast";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import { BOOK_STATUS, bookProgress } from "../lib/selectors";
 import { formatDate } from "../lib/util";
 import { useStore } from "../store";
@@ -21,6 +21,7 @@ export function BookPage() {
 }
 
 function BookView({ book }: { book: Book }) {
+  const pillars = useStore((s) => s.pillars);
   const updateBook = useStore((s) => s.updateBook);
   const removeBook = useStore((s) => s.removeBook);
   const removeEntry = useStore((s) => s.removeReadingEntry);
@@ -39,7 +40,7 @@ function BookView({ book }: { book: Book }) {
         {book.pillarId && (
           <>
             <span aria-hidden="true">/</span>
-            <Link to={`/pillar/${book.pillarId}`}>{PILLAR_BY_ID[book.pillarId].title}</Link>
+            <Link to={`/pillar/${book.pillarId}`}>{pillars[book.pillarId]?.title}</Link>
           </>
         )}
       </nav>
@@ -88,7 +89,7 @@ function BookView({ book }: { book: Book }) {
             <EditDetails book={book} onDone={() => setEditing(false)} />
           ) : (
             <header className="pillar__head">
-              {book.pillarId && <span className="eyebrow">{PILLAR_BY_ID[book.pillarId].title}</span>}
+              {book.pillarId && <span className="eyebrow">{pillars[book.pillarId]?.title}</span>}
               <h1 style={{ fontSize: "var(--step-3)" }}>{book.title}</h1>
               {book.author && <p className="pillar__why" style={{ fontStyle: "normal" }}>{book.author}</p>}
               <p className="small muted">
@@ -205,6 +206,7 @@ function Stars({ value, onChange }: { value: number | null; onChange: (v: number
 }
 
 function EditDetails({ book, onDone }: { book: Book; onDone: () => void }) {
+  const pillarList = usePillarList();
   const updateBook = useStore((s) => s.updateBook);
   const [title, setTitle] = useState(book.title);
   const [author, setAuthor] = useState(book.author);
@@ -258,7 +260,7 @@ function EditDetails({ book, onDone }: { book: Book; onDone: () => void }) {
           Pillar
           <select className="select" value={pillarId} onChange={(e) => setPillarId(e.target.value as PillarId | "")}>
             <option value="">— None —</option>
-            {PILLARS.map((p) => (
+            {pillarList.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title}
               </option>

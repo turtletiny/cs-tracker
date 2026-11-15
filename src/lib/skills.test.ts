@@ -22,7 +22,7 @@ function rung(patch: Partial<Rung> = {}): Rung {
 }
 
 function pillar(rungs: Rung[]): PillarState {
-  return { id: "os", bookId: null, rungs, resources: [], notes: "" };
+  return { id: "os", title: "OS", short: "OS", why: "", bookId: null, rungs, resources: [], notes: "" };
 }
 
 describe("summarize", () => {

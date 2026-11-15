@@ -4,7 +4,7 @@ import { DSA_CHECKLIST } from "./data/dsaChecklist";
 import { SYSTEM_DESIGN_CHECKLIST } from "./data/interview";
 import { DEFAULT_LEARNT_TOPICS } from "./data/neetcode";
 import { BOOK_CHAPTERS } from "./data/chapters";
-import { EXTRA_BOOKS, PILLAR_BY_ID, PILLARS, type BookSeed, type PillarSeed, type RungSeed } from "./data/pillars";
+import { EXTRA_BOOKS, PILLARS, seedFor, type BookSeed, type PillarSeed, type RungSeed } from "./data/pillars";
 import { SAMPLE_SCHEDULE } from "./data/schedule";
 import { clamp, todayISO, uid } from "./lib/util";
 import type {
@@ -26,6 +26,8 @@ import type {
 
 export interface AppData {
   pillars: Record<PillarId, PillarState>;
+  /** Display order of the pillars. */
+  pillarOrder: PillarId[];
   books: Book[];
   checklist: ChecklistItem[];
   customProblems: Problem[];
@@ -40,7 +42,15 @@ export interface AppData {
 export type RungInput = Pick<Rung, "label"> &
   Partial<Pick<Rung, "url" | "track" | "bookId" | "related" | "chapters" | "unit" | "chapterTitles">>;
 
+export type PillarInfo = Pick<PillarState, "title" | "short" | "why">;
+
 interface Actions {
+  /** Adds a pillar at the end and returns its id. */
+  addPillar: (info: PillarInfo) => PillarId;
+  updatePillar: (id: PillarId, patch: Partial<PillarInfo>) => void;
+  setPillarFocus: (id: PillarId, focus: boolean) => void;
+  /** Only pillars you added can be removed. */
+  removePillar: (id: PillarId) => void;
   setPillarNotes: (id: PillarId, notes: string) => void;
   setPillarBook: (id: PillarId, bookId: string | null) => void;
   addResource: (id: PillarId, label: string, url: string) => void;
@@ -146,6 +156,9 @@ function seedBook(seed: BookSeed, now: string): Book {
 function seedPillar(seed: PillarSeed, now: string): PillarState {
   return {
     id: seed.id,
+    title: seed.title,
+    short: seed.short,
+    why: seed.why,
     bookId: `book-${seed.id}`,
     rungs: seedRungs(seed, now),
     resources: seed.resources.map((r) => ({ id: uid(), ...r })),
@@ -163,6 +176,7 @@ export function createInitialData(): AppData {
   const now = new Date().toISOString();
   return {
     pillars: Object.fromEntries(PILLARS.map((p) => [p.id, seedPillar(p, now)])) as Record<PillarId, PillarState>,
+    pillarOrder: PILLARS.map((p) => p.id),
     books: BOOK_SEEDS.map((b) => seedBook(b, now)),
     checklist: [...seedChecklist("dsa", DSA_CHECKLIST), ...seedChecklist("system-design", SYSTEM_DESIGN_CHECKLIST)],
     customProblems: [],
@@ -175,20 +189,23 @@ export function createInitialData(): AppData {
 }
 
 export function pickData(state: AppState): AppData {
-  const { pillars, books, checklist, customProblems, attempts, learntTopics, stories, schedule, scheduleDone } = state;
-  return { pillars, books, checklist, customProblems, attempts, learntTopics, stories, schedule, scheduleDone };
+  const { pillars, pillarOrder, books, checklist, customProblems, attempts, learntTopics, stories, schedule, scheduleDone } =
+    state;
+  return { pillars, pillarOrder, books, checklist, customProblems, attempts, learntTopics, stories, schedule, scheduleDone };
 }
 
 type LegacyBook = Book & { totalPages?: number | null; currentPage?: number };
 type LegacyEntry = ReadingEntry & { page?: number | null };
 
 type LegacyRung = Omit<Rung, "chapters" | "chaptersDone" | "unit" | "chapterTitles"> & Partial<Rung>;
-type LegacyPillar = Omit<PillarState, "rungs"> & {
+type LegacyPillar = Omit<PillarState, "rungs" | "title" | "short" | "why"> &
+  Partial<Pick<PillarState, "title" | "short" | "why">> & {
   rungs?: LegacyRung[];
   status?: "not-started" | "in-progress" | "done";
 };
 type LegacyChecklistItem = Omit<ChecklistItem, "list"> & { list?: ChecklistId };
-type LegacyData = Omit<AppData, "stories" | "schedule" | "scheduleDone"> & Partial<AppData>;
+type LegacyData = Omit<AppData, "stories" | "schedule" | "scheduleDone" | "pillarOrder" | "pillars"> &
+  Partial<AppData> & { pillars: Record<string, LegacyPillar | PillarState> };
 
 /**
  * v1 tracked progress in pages; v2 tracks chapters. Seeded books get their
@@ -223,7 +240,7 @@ function migrateBooks(books: Book[]): Book[] {
 function upgradeRung(pillarId: PillarId, r: LegacyRung): Rung {
   if (r.chapters !== undefined) return r as Rung;
   const base: Rung = { ...r, chapters: null, chaptersDone: 0, unit: "chapter", chapterTitles: [] };
-  const seed = PILLAR_BY_ID[pillarId].rungs.find((x) => x.label === r.label || x.was?.includes(r.label));
+  const seed = seedFor(pillarId)?.rungs.find((x) => x.label === r.label || x.was?.includes(r.label));
   if (!seed) return base;
   const parts = partsFromSeed(seed);
   return {
@@ -245,18 +262,38 @@ export function migrateData(input: LegacyData): AppData {
   const now = new Date().toISOString();
   const hadInterview = "interview" in input.pillars;
 
-  const pillars = Object.fromEntries(
-    PILLARS.map((seed) => {
-      const raw = (input.pillars as Partial<Record<PillarId, LegacyPillar>>)[seed.id];
-      if (!raw) return [seed.id, seedPillar(seed, now)];
-      const { status, rungs, ...rest } = raw;
-      if (rungs) return [seed.id, { ...rest, rungs: rungs.map((r) => upgradeRung(seed.id, r)) }];
-      const seeded = seedRungs(seed, now).map((r) =>
-        status === "done" ? { ...r, doneAt: now, chaptersDone: r.chapters ?? 0 } : r,
-      );
-      return [seed.id, { ...rest, rungs: seeded }];
-    }),
-  ) as Record<PillarId, PillarState>;
+  const legacy = input.pillars as Record<string, LegacyPillar | undefined>;
+  const upgrade = (id: PillarId, raw: LegacyPillar, seed?: PillarSeed): PillarState => {
+    const { status, rungs, ...rest } = raw;
+    // v5 moved names onto each pillar so they can be renamed.
+    const named = {
+      ...rest,
+      title: rest.title ?? seed?.title ?? id,
+      short: rest.short ?? seed?.short ?? rest.title ?? id,
+      why: rest.why ?? seed?.why ?? "",
+    };
+    if (rungs) return { ...named, rungs: rungs.map((r) => upgradeRung(id, r)) };
+    const seeded = seed ? seedRungs(seed, now) : [];
+    return {
+      ...named,
+      rungs: seeded.map((r) => (status === "done" ? { ...r, doneAt: now, chaptersDone: r.chapters ?? 0 } : r)),
+    };
+  };
+
+  const pillars: Record<PillarId, PillarState> = {};
+  for (const seed of PILLARS) {
+    const raw = legacy[seed.id];
+    pillars[seed.id] = raw ? upgrade(seed.id, raw, seed) : seedPillar(seed, now);
+  }
+  // Pillars you added.
+  for (const [id, raw] of Object.entries(legacy)) {
+    if (raw && !pillars[id]) pillars[id] = upgrade(id, raw);
+  }
+
+  const pillarOrder = [
+    ...(input.pillarOrder ?? PILLARS.map((p) => p.id)).filter((id) => pillars[id]),
+    ...Object.keys(pillars).filter((id) => !(input.pillarOrder ?? PILLARS.map((p) => p.id)).includes(id)),
+  ];
 
   // Add seeded books that pillars or their steps now point at, and chapter titles to seeded books.
   const referenced = new Set(
@@ -276,6 +313,7 @@ export function migrateData(input: LegacyData): AppData {
     ...input,
     books,
     pillars,
+    pillarOrder,
     checklist,
     stories: input.stories ?? [],
     schedule: input.schedule ?? [],
@@ -299,7 +337,8 @@ export function isAppData(value: unknown): value is AppData {
 }
 
 function patchPillar(state: AppState, id: PillarId, fn: (p: PillarState) => PillarState) {
-  return { pillars: { ...state.pillars, [id]: fn(state.pillars[id]) } };
+  const pillar = state.pillars[id];
+  return pillar ? { pillars: { ...state.pillars, [id]: fn(pillar) } } : {};
 }
 
 function patchRung(state: AppState, id: PillarId, rungId: string, fn: (r: Rung) => Rung) {
@@ -365,7 +404,7 @@ function partsTotal(state: AppState, rung: Rung): number | null {
 }
 
 function progressPatch(state: AppState, id: PillarId, rungId: string, done: number): Partial<AppData> {
-  const rung = state.pillars[id].rungs.find((r) => r.id === rungId);
+  const rung = state.pillars[id]?.rungs.find((r) => r.id === rungId);
   const total = rung ? partsTotal(state, rung) : null;
   if (!rung || !total) return {};
   const n = clamp(Math.round(done), 0, total);
@@ -415,7 +454,7 @@ function progressPatch(state: AppState, id: PillarId, rungId: string, done: numb
 }
 
 function startedPatch(state: AppState, id: PillarId, rungId: string, started: boolean): Partial<AppData> {
-  const rung = state.pillars[id].rungs.find((r) => r.id === rungId);
+  const rung = state.pillars[id]?.rungs.find((r) => r.id === rungId);
   if (!rung) return {};
   const book = rung.bookId ? state.books.find((b) => b.id === rung.bookId) : undefined;
   const books = !book
@@ -428,10 +467,11 @@ function startedPatch(state: AppState, id: PillarId, rungId: string, started: bo
         }
         return b;
       });
-  const pillars = patchRung(state, id, rungId, (r) => ({
-    ...r,
-    startedAt: started ? (r.startedAt ?? new Date().toISOString()) : null,
-  })).pillars;
+  const pillars =
+    patchRung(state, id, rungId, (r) => ({
+      ...r,
+      startedAt: started ? (r.startedAt ?? new Date().toISOString()) : null,
+    })).pillars ?? state.pillars;
   return { books, pillars };
 }
 
@@ -445,6 +485,35 @@ export const useStore = create<AppState>()(
   persist(
     (set) => ({
       ...createInitialData(),
+
+      addPillar: (info) => {
+        const id = `p-${uid().slice(0, 8)}`;
+        set((s) => ({
+          pillars: {
+            ...s.pillars,
+            [id]: { id, ...info, custom: true, bookId: null, rungs: [], resources: [], notes: "" },
+          },
+          pillarOrder: [...s.pillarOrder, id],
+        }));
+        return id;
+      },
+      updatePillar: (id, patch) => set((s) => patchPillar(s, id, (p) => ({ ...p, ...patch }))),
+      setPillarFocus: (id, focus) => set((s) => patchPillar(s, id, (p) => ({ ...p, focus }))),
+      removePillar: (id) =>
+        set((s) => {
+          if (!s.pillars[id]?.custom) return {};
+          const { [id]: _removed, ...rest } = s.pillars;
+          return {
+            pillars: mapPillars(rest, (p) =>
+              p.rungs.some((r) => r.related.includes(id))
+                ? { ...p, rungs: p.rungs.map((r) => ({ ...r, related: r.related.filter((x) => x !== id) })) }
+                : p,
+            ),
+            pillarOrder: s.pillarOrder.filter((x) => x !== id),
+            books: s.books.map((b) => (b.pillarId === id ? { ...b, pillarId: null } : b)),
+            schedule: s.schedule.map((b) => (b.pillarId === id ? { ...b, pillarId: null } : b)),
+          };
+        }),
 
       setPillarNotes: (id, notes) => set((s) => patchPillar(s, id, (p) => ({ ...p, notes }))),
       setPillarBook: (id, bookId) => set((s) => patchPillar(s, id, (p) => ({ ...p, bookId }))),
@@ -499,7 +568,7 @@ export const useStore = create<AppState>()(
         set((s) => patchPillar(s, id, (p) => ({ ...p, rungs: moveItem(p.rungs, rungId, delta, (a, b) => a.track === b.track) }))),
       toggleRungDone: (id, rungId) =>
         set((s) => {
-          const rung = s.pillars[id].rungs.find((r) => r.id === rungId);
+          const rung = s.pillars[id]?.rungs.find((r) => r.id === rungId);
           if (!rung) return {};
           // A step with parts is complete exactly when all its parts are.
           const total = partsTotal(s, rung);
@@ -512,7 +581,7 @@ export const useStore = create<AppState>()(
       setRungProgress: (id, rungId, done) => set((s) => progressPatch(s, id, rungId, done)),
       toggleRungStarted: (id, rungId) =>
         set((s) => {
-          const rung = s.pillars[id].rungs.find((r) => r.id === rungId);
+          const rung = s.pillars[id]?.rungs.find((r) => r.id === rungId);
           return rung ? startedPatch(s, id, rungId, !rung.startedAt) : {};
         }),
       setRungStarted: (id, rungId, started) => set((s) => startedPatch(s, id, rungId, started)),
@@ -654,14 +723,16 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "cs-tracker",
-      version: 4,
+      version: 5,
       partialize: (s) => pickData(s),
       migrate: (persisted) => migrateData(persisted as LegacyData),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== "object") return current;
         const p = persisted as Partial<AppData>;
-        // Keep any pillars added in newer versions of the app.
-        return { ...current, ...p, pillars: { ...current.pillars, ...(p.pillars ?? {}) } };
+        // Saved pillars win; the order lists only pillars that exist.
+        const pillars = p.pillars ?? current.pillars;
+        const order = (p.pillarOrder ?? current.pillarOrder).filter((id) => pillars[id]);
+        return { ...current, ...p, pillars, pillarOrder: [...order, ...Object.keys(pillars).filter((id) => !order.includes(id))] };
       },
     },
   ),

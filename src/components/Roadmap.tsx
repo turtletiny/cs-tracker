@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { PILLAR_BY_ID } from "../data/pillars";
 import { rungParts, rungStatus, summarize, useBookMap, type RungParts, type RungStatus } from "../lib/skills";
 import { clamp, formatDate } from "../lib/util";
 import { useStore } from "../store";
@@ -28,7 +27,7 @@ interface Seg {
 export function Roadmap({ pillarId, compact = false }: { pillarId: PillarId; compact?: boolean }) {
   const pillar = useStore((s) => s.pillars[pillarId]);
   const bookById = useBookMap();
-  const seed = PILLAR_BY_ID[pillarId];
+  if (!pillar) return null;
   const summary = summarize(pillar, bookById);
   const active = summary.steps.filter((s) => s === "doing").length;
   const tracks = [...new Set(pillar.rungs.map((r) => r.track))].sort((a, b) => (a === "" ? -1 : b === "" ? 1 : 0));
@@ -37,15 +36,19 @@ export function Roadmap({ pillarId, compact = false }: { pillarId: PillarId; com
   return (
     <section
       className="rm-row"
-      aria-label={`${seed.title} roadmap`}
+      aria-label={`${pillar.title} roadmap`}
       data-complete={summary.max > 0 && summary.level === summary.max}
+      data-focus={pillar.focus || undefined}
       data-headless={!compact || undefined}
     >
       {compact && (
         <header className="rm-row__head">
-          <Link to={`/pillar/${pillarId}`} className="rm-row__title">
-            {seed.short}
-          </Link>
+          <div className="rm-row__titled">
+            <Link to={`/pillar/${pillarId}`} className="rm-row__title">
+              {pillar.short}
+            </Link>
+            {pillar.focus && <span className="rm-row__now">in progress</span>}
+          </div>
           <span className="rm-row__stats num">
             <strong>{Math.round(summary.progress * 100)}%</strong>
             <span className="muted">

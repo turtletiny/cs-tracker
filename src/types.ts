@@ -1,4 +1,5 @@
-export type PillarId =
+/** The pillars the app ships with. */
+export type SeedPillarId =
   | "programming"
   | "architecture"
   | "algorithms"
@@ -9,6 +10,9 @@ export type PillarId =
   | "languages"
   | "distributed"
   | "interview";
+
+/** Seeded pillars use their SeedPillarId; ones you add get a generated id. */
+export type PillarId = string;
 
 export interface Resource {
   id: string;
@@ -43,6 +47,15 @@ export interface Rung {
 
 export interface PillarState {
   id: PillarId;
+  title: string;
+  /** Shorter name for tight spaces (roadmap rows, the web, tags). */
+  short: string;
+  /** One-line description shown under the title. */
+  why: string;
+  /** True for pillars you added; only these can be deleted. */
+  custom?: boolean;
+  /** True for pillars you’re working on right now; they come first on the overview. */
+  focus?: boolean;
   bookId: string | null;
   rungs: Rung[];
   resources: Resource[];

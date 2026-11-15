@@ -1,4 +1,4 @@
-import type { PillarId } from "../types";
+import type { SeedPillarId } from "../types";
 import {
   BOOTDEV_C_CHAPTERS,
   ESSENCE_OF_LINEAR_ALGEBRA,
@@ -19,14 +19,14 @@ export interface RungSeed {
   book?: true | string;
   /** Named parts for a resource that isn't a book. */
   parts?: { unit: string; titles: string[] };
-  related?: PillarId[];
+  related?: SeedPillarId[];
   /** Seed as already in progress. */
   current?: boolean;
 }
 
 export interface BookSeed {
   id: string;
-  pillarId: PillarId;
+  pillarId: SeedPillarId;
   title: string;
   author: string;
   cover: string;
@@ -54,7 +54,7 @@ export const EXTRA_BOOKS: BookSeed[] = [
 ];
 
 export interface PillarSeed {
-  id: PillarId;
+  id: SeedPillarId;
   title: string;
   short: string;
   why: string;
@@ -423,13 +423,17 @@ export const PILLARS: PillarSeed[] = [
   },
 ];
 
-export const PILLAR_BY_ID = Object.fromEntries(PILLARS.map((p) => [p.id, p])) as Record<PillarId, PillarSeed>;
+export const PILLAR_BY_ID = Object.fromEntries(PILLARS.map((p) => [p.id, p])) as Record<SeedPillarId, PillarSeed>;
+
+export function seedFor(id: string): PillarSeed | undefined {
+  return (PILLAR_BY_ID as Record<string, PillarSeed | undefined>)[id];
+}
 
 /**
  * How the subjects feed each other. These aren’t prerequisites — just the
  * places where studying one makes another click.
  */
-export const CONNECTIONS: { a: PillarId; b: PillarId; why: string }[] = [
+export const CONNECTIONS: { a: SeedPillarId; b: SeedPillarId; why: string }[] = [
   { a: "programming", b: "algorithms", why: "recursion, abstraction, complexity in practice" },
   { a: "programming", b: "languages", why: "evaluation, closures, type systems" },
   { a: "programming", b: "architecture", why: "C, pointers, memory layout" },
@@ -452,7 +456,7 @@ export const CONNECTIONS: { a: PillarId; b: PillarId; why: string }[] = [
 ];
 
 /** Order around the skill web; interview sits at the hub. */
-export const WEB_RING: PillarId[] = [
+export const WEB_RING: SeedPillarId[] = [
   "programming",
   "languages",
   "math",
@@ -463,4 +467,4 @@ export const WEB_RING: PillarId[] = [
   "os",
   "architecture",
 ];
-export const WEB_HUB: PillarId = "interview";
+export const WEB_HUB: SeedPillarId = "interview";

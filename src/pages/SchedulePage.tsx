@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useToast } from "../components/Toast";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import {
   blocksForDay,
   DAY_NAMES,
@@ -118,6 +118,7 @@ function Timeline({ blocks, isToday, now, doneIds }: { blocks: ScheduleBlock[]; 
 }
 
 function BlockRow({ block, isToday, now, done }: { block: ScheduleBlock; isToday: boolean; now: Date; done: boolean }) {
+  const pillars = useStore((s) => s.pillars);
   const toggle = useStore((s) => s.toggleBlockDone);
   const remove = useStore((s) => s.removeBlock);
   const toast = useToast((s) => s.show);
@@ -147,7 +148,7 @@ function BlockRow({ block, isToday, now, done }: { block: ScheduleBlock; isToday
           <span className="num">{formatDuration(durationMinutes(block))}</span>
           {block.pillarId && (
             <Link to={`/pillar/${block.pillarId}`} className="tag">
-              {PILLAR_BY_ID[block.pillarId].short}
+              {pillars[block.pillarId]?.short}
             </Link>
           )}
           {block.days.length < 7 && <span>{daysLabel(block.days)}</span>}
@@ -207,6 +208,7 @@ function BlockForm({
   submitLabel: string;
   onDone: () => void;
 }) {
+  const pillarList = usePillarList();
   const addBlock = useStore((s) => s.addBlock);
   const updateBlock = useStore((s) => s.updateBlock);
   const [start, setStart] = useState(initial.start ?? "09:00");
@@ -245,7 +247,7 @@ function BlockForm({
         Skill
         <select className="select" value={pillarId} onChange={(e) => setPillarId(e.target.value as PillarId | "")}>
           <option value="">— None —</option>
-          {PILLARS.map((p) => (
+          {pillarList.map((p) => (
             <option key={p.id} value={p.id}>
               {p.short}
             </option>
@@ -292,6 +294,7 @@ function BlockForm({
 }
 
 function WeekSummary() {
+  const pillars = useStore((s) => s.pillars);
   const schedule = useStore((s) => s.schedule);
   const scheduleDone = useStore((s) => s.scheduleDone);
   const totals = weeklyMinutesByPillar(schedule);
@@ -324,7 +327,7 @@ function WeekSummary() {
           {rows.map(([pid, m]) => (
             <li key={pid ?? "none"}>
               <span className="hours__name">
-                {pid ? <Link to={`/pillar/${pid}`}>{PILLAR_BY_ID[pid].short}</Link> : <span className="muted">Untagged</span>}
+                {pid ? <Link to={`/pillar/${pid}`}>{pillars[pid]?.short}</Link> : <span className="muted">Untagged</span>}
                 <span className="num muted">{formatDuration(m)}</span>
               </span>
               <span className="hours__bar" style={{ "--w": m / max } as React.CSSProperties} data-none={pid ? undefined : true} />

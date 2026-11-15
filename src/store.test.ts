@@ -50,11 +50,11 @@ function v2Data() {
 describe("migrateData (roadmap → skills)", () => {
   it("seeds ladders, keeps done pillars done and adds the interview pillar", () => {
     const out = migrateData(v2Data());
-    expect(out.pillars.math.rungs.length).toBeGreaterThan(0);
-    expect(out.pillars.math.rungs.every((r) => r.doneAt)).toBe(true);
-    expect(out.pillars.os.rungs.some((r) => r.doneAt)).toBe(false);
+    expect(out.pillars.math!.rungs.length).toBeGreaterThan(0);
+    expect(out.pillars.math!.rungs.every((r) => r.doneAt)).toBe(true);
+    expect(out.pillars.os!.rungs.some((r) => r.doneAt)).toBe(false);
     expect(out.pillars.os).not.toHaveProperty("status");
-    expect(out.pillars.interview.rungs.some((r) => r.track === "Behavioural")).toBe(true);
+    expect(out.pillars.interview!.rungs.some((r) => r.track === "Behavioural")).toBe(true);
     expect(out.books.some((b) => b.id === "book-interview")).toBe(true);
     expect(out.checklist.some((c) => c.list === "system-design")).toBe(true);
     expect(out.checklist.filter((c) => c.list === "dsa").length).toBeGreaterThan(0);
@@ -73,7 +73,7 @@ describe("book ↔ rung sync", () => {
 
   it("ticks rungs linked to a book when the book is finished", () => {
     const { logReading } = useStore.getState();
-    const rung = () => useStore.getState().pillars.os.rungs.find((r) => r.bookId === "book-os")!;
+    const rung = () => useStore.getState().pillars.os!.rungs.find((r) => r.bookId === "book-os")!;
     expect(rung().doneAt).toBeNull();
     logReading("book-os", { date: "2026-10-01", chapter: 10, minutes: null, note: "" });
     expect(rung().doneAt).toBeNull();
@@ -83,13 +83,13 @@ describe("book ↔ rung sync", () => {
 
   it("unlinks rungs when their book is deleted", () => {
     useStore.getState().removeBook("book-os");
-    expect(useStore.getState().pillars.os.rungs.some((r) => r.bookId === "book-os")).toBe(false);
+    expect(useStore.getState().pillars.os!.rungs.some((r) => r.bookId === "book-os")).toBe(false);
   });
 });
 
 describe("roadmap progress", () => {
   beforeEach(() => useStore.getState().resetAll());
-  const rung = (label: string) => useStore.getState().pillars.programming.rungs.find((r) => r.label === label)!;
+  const rung = (label: string) => useStore.getState().pillars.programming!.rungs.find((r) => r.label === label)!;
 
   it("tracks parts on a step without a book", () => {
     const { setRungProgress, toggleRungDone } = useStore.getState();
@@ -122,7 +122,7 @@ describe("starting resources", () => {
 
   it("lets several resources in a pillar run at once", () => {
     const { setRungStarted } = useStore.getState();
-    const rungs = () => useStore.getState().pillars.programming.rungs;
+    const rungs = () => useStore.getState().pillars.programming!.rungs;
     setRungStarted("programming", rungs()[1]!.id, true);
     setRungStarted("programming", rungs()[2]!.id, true);
     expect(rungs().filter((r) => r.startedAt).length).toBe(3);
@@ -130,7 +130,7 @@ describe("starting resources", () => {
 
   it("moves a linked book onto and off the reading shelf", () => {
     const { setRungStarted } = useStore.getState();
-    const knr = () => useStore.getState().pillars.programming.rungs.find((r) => r.bookId === "book-knr")!;
+    const knr = () => useStore.getState().pillars.programming!.rungs.find((r) => r.bookId === "book-knr")!;
     const book = () => useStore.getState().books.find((b) => b.id === "book-knr")!;
     setRungStarted("programming", knr().id, true);
     expect(book().status).toBe("reading");
@@ -160,11 +160,88 @@ describe("migrateData (steps → chapters)", () => {
     } as unknown as AppData;
 
     const out = migrateData(v3);
-    const [rust, bootdev, own] = out.pillars.programming.rungs;
+    const [rust, bootdev, own] = out.pillars.programming!.rungs;
     expect(rust).toMatchObject({ id: "a", label: "The Rust book", bookId: "book-rust", startedAt: "x" });
     expect(bootdev).toMatchObject({ chapters: 11, chaptersDone: 11, unit: "chapter" });
     expect(own).toMatchObject({ label: "My own thing", chapters: null, chaptersDone: 0 });
     expect(out.books.find((b) => b.id === "book-rust")?.chapterTitles?.[3]).toBe("Understanding Ownership");
+    expect(migrateData(out)).toEqual(out);
+  });
+});
+
+describe("pillars", () => {
+  beforeEach(() => useStore.getState().resetAll());
+
+  it("adds a pillar at the end and renames it", () => {
+    const { addPillar, updatePillar } = useStore.getState();
+    const id = addPillar({ title: "Computer Graphics", short: "Graphics", why: "" });
+    let s = useStore.getState();
+    expect(s.pillarOrder.at(-1)).toBe(id);
+    expect(s.pillars[id]).toMatchObject({ title: "Computer Graphics", short: "Graphics", custom: true, rungs: [] });
+    updatePillar(id, { title: "Graphics Programming" });
+    s = useStore.getState();
+    expect(s.pillars[id]!.title).toBe("Graphics Programming");
+  });
+
+  it("renames a seeded pillar", () => {
+    useStore.getState().updatePillar("os", { title: "Operating Systems & Kernels", short: "Kernels" });
+    expect(useStore.getState().pillars.os).toMatchObject({ title: "Operating Systems & Kernels", short: "Kernels" });
+  });
+
+  it("marks pillars as in progress without touching their order", () => {
+    const before = useStore.getState().pillarOrder;
+    useStore.getState().setPillarFocus("os", true);
+    expect(useStore.getState().pillars.os!.focus).toBe(true);
+    expect(useStore.getState().pillarOrder).toEqual(before);
+    useStore.getState().setPillarFocus("nope", true);
+    expect(useStore.getState().pillars.nope).toBeUndefined();
+    useStore.getState().setPillarFocus("os", false);
+    expect(useStore.getState().pillars.os!.focus).toBe(false);
+  });
+
+  it("deletes only pillars you added, and cleans up references to them", () => {
+    const { addPillar, removePillar, updateRung, addBlock, updateBook } = useStore.getState();
+    removePillar("os");
+    expect(useStore.getState().pillars.os).toBeDefined();
+
+    const id = addPillar({ title: "Graphics", short: "Graphics", why: "" });
+    const rung = useStore.getState().pillars.programming!.rungs[0]!;
+    updateRung("programming", rung.id, { related: [id, "architecture"] });
+    addBlock({ start: "09:00", end: "10:00", label: "Shaders", pillarId: id, days: [1] });
+    updateBook("book-rust", { pillarId: id });
+
+    removePillar(id);
+    const s = useStore.getState();
+    expect(s.pillars[id]).toBeUndefined();
+    expect(s.pillarOrder).not.toContain(id);
+    expect(s.pillars.programming!.rungs[0]!.related).toEqual(["architecture"]);
+    expect(s.schedule[0]!.pillarId).toBeNull();
+    expect(s.books.find((b) => b.id === "book-rust")!.pillarId).toBeNull();
+  });
+});
+
+describe("migrateData (names on pillars)", () => {
+  it("fills in names from the seeds, keeps added pillars and builds the order", () => {
+    const data = createInitialData();
+    const v4 = {
+      ...data,
+      pillars: {
+        ...Object.fromEntries(
+          Object.entries(data.pillars).map(([id, p]) => {
+            const { title: _t, short: _s, why: _w, ...rest } = p;
+            return [id, rest];
+          }),
+        ),
+        "p-1234": { id: "p-1234", title: "Graphics", short: "Graphics", why: "", custom: true, bookId: null, rungs: [], resources: [], notes: "" },
+      },
+    } as unknown as AppData;
+    delete (v4 as Partial<AppData>).pillarOrder;
+
+    const out = migrateData(v4);
+    expect(out.pillars.os).toMatchObject({ title: "Operating Systems", short: "Operating Systems" });
+    expect(out.pillars["p-1234"]!.title).toBe("Graphics");
+    expect(out.pillarOrder[0]).toBe("programming");
+    expect(out.pillarOrder.at(-1)).toBe("p-1234");
     expect(migrateData(out)).toEqual(out);
   });
 });

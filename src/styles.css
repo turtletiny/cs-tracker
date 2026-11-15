@@ -782,6 +782,40 @@ p {
   color: var(--pencil-red);
 }
 
+.rm-row[data-focus] .rm-row__title {
+  display: inline;
+  background: linear-gradient(transparent 58%, var(--highlight) 58%, var(--highlight) 88%, transparent 88%) no-repeat;
+}
+
+.rm-row__now {
+  margin-left: 0.4rem;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  color: var(--pencil-red);
+  white-space: nowrap;
+}
+
+.rm-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-m);
+  padding-block: var(--space-m);
+}
+
+.rm-divider span {
+  font-family: var(--font-hand);
+  font-size: 1.1rem;
+  color: var(--ink-3);
+  transform: rotate(-1deg);
+}
+
+.rm-divider::before,
+.rm-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--rule);
+}
+
 .rm-row__stats {
   display: flex;
   align-items: baseline;
@@ -1799,6 +1833,72 @@ a.seg__name:hover {
 
 .pillar__level .medallion {
   --size: 3.6rem;
+}
+
+.pillar__title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-m);
+}
+
+.pillar__title-row .btn {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.pillar__title-row:hover .btn,
+.pillar__title-row .btn:focus-visible {
+  opacity: 1;
+}
+
+.pillar__title-row .btn[data-on] {
+  opacity: 1;
+  --btn-bg: var(--highlight);
+  --btn-fg: var(--ink);
+}
+
+.pillar__title-row .btn[data-on]:hover {
+  --btn-bg: oklch(88% 0.12 96);
+}
+
+@media (hover: none) {
+  .pillar__title-row .btn {
+    opacity: 1;
+  }
+}
+
+.pillar-form {
+  display: grid;
+  gap: var(--space-s);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  padding: var(--space-m);
+  background: var(--paper-2);
+  border: 1px solid var(--paper-4);
+  border-radius: var(--radius);
+}
+
+.pillar-form__wide {
+  grid-column: 1 / -1;
+}
+
+.pillar-form__extra {
+  margin-left: auto;
+}
+
+.add-pillar {
+  padding-top: var(--space-m);
+}
+
+.add-pillar--open {
+  display: grid;
+  gap: var(--space-s);
+  max-width: 48rem;
+}
+
+.add-pillar__title {
+  font-size: var(--step-1);
+  font-weight: 600;
 }
 
 .pillar__rank {

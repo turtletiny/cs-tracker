@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Checklist } from "../components/Checklist";
 import { Connections } from "../components/Connections";
 import { Cover } from "../components/Cover";
@@ -12,7 +12,9 @@ import { Roadmap } from "../components/Roadmap";
 import { ReadingForm } from "../components/ReadingForm";
 import { StoryBank } from "../components/StoryBank";
 import { useToast } from "../components/Toast";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { ConfirmButton } from "../components/ConfirmButton";
+import { PillarForm } from "../components/PillarForm";
+import { usePillarList } from "../lib/pillars";
 import { bookProgress, progressLabel } from "../lib/selectors";
 import { summarize, useBookMap } from "../lib/skills";
 import { isSafeUrl, normalizeUrl } from "../lib/util";
@@ -22,20 +24,23 @@ import { NotFound } from "./NotFound";
 
 export function PillarPage() {
   const { id } = useParams();
-  const seed = id ? PILLAR_BY_ID[id as PillarId] : undefined;
-  if (!seed) return <NotFound />;
-  return <PillarView key={seed.id} id={seed.id} />;
+  const exists = useStore((s) => (id ? !!s.pillars[id] : false));
+  if (!id || !exists) return <NotFound what="pillar" />;
+  return <PillarView key={id} id={id} />;
 }
 
 function PillarView({ id }: { id: PillarId }) {
-  const seed = PILLAR_BY_ID[id];
-  const index = PILLARS.findIndex((p) => p.id === id);
-  const prev = PILLARS[index - 1];
-  const next = PILLARS[index + 1];
+  const list = usePillarList();
+  const index = list.findIndex((p) => p.id === id);
+  const prev = list[index - 1];
+  const next = list[index + 1];
 
   const pillar = useStore((s) => s.pillars[id]);
   const setNotes = useStore((s) => s.setPillarNotes);
+  const setPillarFocus = useStore((s) => s.setPillarFocus);
   const bookById = useBookMap();
+  const [editing, setEditing] = useState(false);
+  if (!pillar) return null;
   const summary = summarize(pillar, bookById);
 
   return (
@@ -43,7 +48,7 @@ function PillarView({ id }: { id: PillarId }) {
       <nav className="crumbs" aria-label="Breadcrumb">
         <Link to="/">← Roadmaps</Link>
         <span aria-hidden="true">/</span>
-        <span>{seed.short}</span>
+        <span>{pillar.short}</span>
       </nav>
 
       <div className="pillar">
@@ -60,8 +65,28 @@ function PillarView({ id }: { id: PillarId }) {
                 </span>
               </span>
             </div>
-            <h1>{seed.title}</h1>
-            <p className="pillar__why">{seed.why}</p>
+            {editing ? (
+              <PillarEditor pillarId={id} onDone={() => setEditing(false)} />
+            ) : (
+              <>
+                <div className="pillar__title-row">
+                  <h1>{pillar.title}</h1>
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(true)}>
+                    ✎ Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    data-on={pillar.focus || undefined}
+                    aria-pressed={pillar.focus}
+                    onClick={() => setPillarFocus(id, !pillar.focus)}
+                  >
+                    {pillar.focus ? "★ In progress" : "☆ In progress"}
+                  </button>
+                </div>
+                {pillar.why && <p className="pillar__why">{pillar.why}</p>}
+              </>
+            )}
           </header>
 
           <Roadmap pillarId={id} />
@@ -97,7 +122,7 @@ function PillarView({ id }: { id: PillarId }) {
               <span className="small muted">Saved as you type</span>
             </div>
             <label htmlFor="pillar-notes" className="visually-hidden">
-              Notes for {seed.title}
+              Notes for {pillar.title}
             </label>
             <textarea
               id="pillar-notes"
@@ -128,13 +153,52 @@ function PillarView({ id }: { id: PillarId }) {
   );
 }
 
+function PillarEditor({ pillarId, onDone }: { pillarId: PillarId; onDone: () => void }) {
+  const pillar = useStore((s) => s.pillars[pillarId]);
+  const updatePillar = useStore((s) => s.updatePillar);
+  const removePillar = useStore((s) => s.removePillar);
+  const toast = useToast((s) => s.show);
+  const navigate = useNavigate();
+  if (!pillar) return null;
+
+  return (
+    <PillarForm
+      initial={pillar}
+      submitLabel="Save"
+      onSubmit={(info) => {
+        updatePillar(pillarId, info);
+        onDone();
+      }}
+      onCancel={onDone}
+    >
+      {pillar.custom && (
+        <ConfirmButton
+          confirmLabel="Delete this pillar"
+          onConfirm={() => {
+            const { pillars, pillarOrder, books, schedule } = useStore.getState();
+            removePillar(pillarId);
+            navigate("/");
+            toast(`Deleted “${pillar.title}”`, {
+              label: "Undo",
+              run: () => useStore.setState({ pillars, pillarOrder, books, schedule }),
+            });
+          }}
+        >
+          Delete pillar
+        </ConfirmButton>
+      )}
+    </PillarForm>
+  );
+}
+
 function PillarBook({ pillarId }: { pillarId: PillarId }) {
   const pillar = useStore((s) => s.pillars[pillarId]);
   // Show the book for the next unfinished resource on the roadmap, falling back to the pillar’s own book.
   const roadmapBookId = useStore(
-    (s) => s.pillars[pillarId].rungs.find((r) => !r.doneAt && r.bookId && s.books.some((b) => b.id === r.bookId))?.bookId ?? null,
+    (s) =>
+      s.pillars[pillarId]?.rungs.find((r) => !r.doneAt && r.bookId && s.books.some((b) => b.id === r.bookId))?.bookId ?? null,
   );
-  const book = useStore((s) => s.books.find((b) => b.id === (roadmapBookId ?? pillar.bookId)));
+  const book = useStore((s) => s.books.find((b) => b.id === (roadmapBookId ?? pillar?.bookId)));
   const books = useStore((s) => s.books);
   const updateBook = useStore((s) => s.updateBook);
   const setPillarBook = useStore((s) => s.setPillarBook);
@@ -254,8 +318,10 @@ function hostOf(url: string) {
   }
 }
 
+const EMPTY: Resource[] = [];
+
 function Resources({ pillarId }: { pillarId: PillarId }) {
-  const resources = useStore((s) => s.pillars[pillarId].resources);
+  const resources = useStore((s) => s.pillars[pillarId]?.resources ?? EMPTY);
   const addResource = useStore((s) => s.addResource);
   const [adding, setAdding] = useState(false);
 

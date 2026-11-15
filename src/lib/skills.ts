@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { PILLARS } from "../data/pillars";
 import { useStore } from "../store";
 import type { Book, PillarId, PillarState, Rung } from "../types";
 
@@ -108,7 +107,7 @@ export function useSkills(): Record<PillarId, SkillSummary> {
   const pillars = useStore((s) => s.pillars);
   const bookById = useBookMap();
   return useMemo(
-    () => Object.fromEntries(PILLARS.map((p) => [p.id, summarize(pillars[p.id], bookById)])) as Record<PillarId, SkillSummary>,
+    () => Object.fromEntries(Object.values(pillars).map((p) => [p.id, summarize(p, bookById)])),
     [pillars, bookById],
   );
 }
@@ -122,14 +121,14 @@ export interface Thread {
 /** Pairs of pillars bridged by a rung that lists the other as related. */
 export function findThreads(pillars: Record<PillarId, PillarState>): Thread[] {
   const byPair = new Map<string, Thread>();
-  for (const seed of PILLARS) {
-    for (const rung of pillars[seed.id]?.rungs ?? []) {
+  for (const pillar of Object.values(pillars)) {
+    for (const rung of pillar.rungs) {
       for (const other of rung.related) {
-        if (other === seed.id) continue;
-        const [a, b] = [seed.id, other].sort() as [PillarId, PillarId];
+        if (other === pillar.id || !pillars[other]) continue;
+        const [a, b] = [pillar.id, other].sort() as [PillarId, PillarId];
         const key = `${a}|${b}`;
         const t = byPair.get(key) ?? { a, b, rungs: [] };
-        t.rungs.push({ pillarId: seed.id, rung });
+        t.rungs.push({ pillarId: pillar.id, rung });
         byPair.set(key, t);
       }
     }

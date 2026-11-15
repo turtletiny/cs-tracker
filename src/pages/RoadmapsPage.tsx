@@ -1,9 +1,11 @@
-import { Link } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { Cover } from "../components/Cover";
+import { PillarForm } from "../components/PillarForm";
 import { ProgressBar } from "../components/ProgressBar";
 import { Roadmap } from "../components/Roadmap";
 import { SkillWeb } from "../components/SkillWeb";
-import { PILLAR_BY_ID, PILLARS } from "../data/pillars";
+import { usePillarList } from "../lib/pillars";
 import { currentOrNext } from "../lib/schedule";
 import { bookProgress, progressLabel } from "../lib/selectors";
 import { useSkills } from "../lib/skills";
@@ -12,8 +14,11 @@ import { useStore } from "../store";
 
 export function RoadmapsPage() {
   const skills = useSkills();
-  const totalLevels = PILLARS.reduce((n, p) => n + skills[p.id].level, 0);
-  const maxLevels = PILLARS.reduce((n, p) => n + skills[p.id].max, 0);
+  const pillars = usePillarList();
+  const totalLevels = pillars.reduce((n, p) => n + (skills[p.id]?.level ?? 0), 0);
+  const maxLevels = pillars.reduce((n, p) => n + (skills[p.id]?.max ?? 0), 0);
+  const working = pillars.filter((p) => p.focus);
+  const later = pillars.filter((p) => !p.focus);
 
   return (
     <div className="stack" style={{ gap: "var(--space-xl)" }}>
@@ -27,16 +32,54 @@ export function RoadmapsPage() {
         </p>
       </header>
 
-      <div className="roadmaps">
-        {PILLARS.map((p) => (
-          <Roadmap key={p.id} pillarId={p.id} compact />
-        ))}
+      <div>
+        <div className="roadmaps">
+          {working.length > 0 &&
+            pillars
+              .filter((p) => p.focus)
+              .map((p) => <Roadmap key={p.id} pillarId={p.id} compact />)}
+          {working.length > 0 && later.length > 0 && (
+            <div className="rm-divider">
+              <span>the rest</span>
+            </div>
+          )}
+          {later.map((p) => (
+            <Roadmap key={p.id} pillarId={p.id} compact />
+          ))}
+        </div>
+        <AddPillar />
       </div>
 
       <div className="home-lower">
         <SkillWeb skills={skills} />
         <MarginNotes />
       </div>
+    </div>
+  );
+}
+
+function AddPillar() {
+  const addPillar = useStore((s) => s.addPillar);
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <div className="add-pillar">
+        <button type="button" className="btn btn--sm" onClick={() => setOpen(true)}>
+          + Add a pillar
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="add-pillar add-pillar--open">
+      <h2 className="add-pillar__title">New pillar</h2>
+      <PillarForm
+        submitLabel="Add pillar"
+        onSubmit={(info) => navigate(`/pillar/${addPillar(info)}`)}
+        onCancel={() => setOpen(false)}
+      />
     </div>
   );
 }
@@ -54,6 +97,7 @@ function MarginNotes() {
   const solvedIds = new Set(attempts.filter((a) => a.rating !== "failed").map((a) => a.problemId));
   const dsa = checklist.filter((c) => c.list === "dsa");
   const slot = currentOrNext(schedule, now);
+  const slotPillar = useStore((s) => (slot?.block.pillarId ? s.pillars[slot.block.pillarId]?.short : undefined));
 
   return (
     <aside className="margin-notes" aria-label="At a glance">
@@ -65,7 +109,7 @@ function MarginNotes() {
               {slot.block.start}–{slot.block.end}
             </span>
             <span className="note__title">{slot.block.label}</span>
-            {slot.block.pillarId && <span className="tag">{PILLAR_BY_ID[slot.block.pillarId].short}</span>}
+            {slotPillar && <span className="tag">{slotPillar}</span>}
           </Link>
         ) : (
           <p className="small muted">
